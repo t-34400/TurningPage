@@ -1,0 +1,729 @@
+#pragma kernel CSMain
+
+#define NUM_THREADS 8
+
+#define LOCAL_DATA_LENGTH (NUM_THREADS + 4)
+#define LOCAL_DATA_COUNT (LOCAL_DATA_LENGTH * LOCAL_DATA_LENGTH)
+
+#define ACCUMULATED_VERTEX_PER_THREAD 8
+#define ACCUMULATION_DATA_COUNT (NUM_THREADS * NUM_THREADS * ACCUMULATED_VERTEX_PER_THREAD)
+
+struct Vertex {
+    float3 position;
+    float2 uv;
+    float3 normals;
+};
+
+RWStructuredBuffer<Vertex> vertexBuffer;
+RWStructuredBuffer<float3> predictedPositionBuffer;
+
+float2 _GridSize;
+uint2 _GridCount;
+
+bool _IsPinched;
+uint2 _PinchId;
+float3 _PinchPoint;
+float3 _PinchRight;
+float3 _PinchForward;
+
+float _StretchCompliance;
+float _StretchDampingEffect;
+float _DiagStretchCompliance;
+float _DiagStretchDampingEffect;
+
+float _BendHorizontalCompliance;
+float _BendVerticalCompliance;
+float _BendHorizontalDampingEffect;
+float _BendVerticalDampingEffect;
+float _BendSORFactor;
+
+float _PinchCompliance;
+float _PinchDampingEffect;
+
+float _PinchRotationCompliance;
+float _PinchRotationDampingEffect;
+
+groupshared float3 localPreviousStepData[LOCAL_DATA_COUNT];
+groupshared float3 localData[LOCAL_DATA_COUNT];
+
+groupshared float3 accumulatedDeltaData[ACCUMULATION_DATA_COUNT];
+groupshared uint numConstraintData[ACCUMULATION_DATA_COUNT];
+
+void LoadVertexData(uint3 id, uint3 threadId, uint index, uint localIndex)
+{
+    localData[localIndex] = predictedPositionBuffer[index];
+    localPreviousStepData[localIndex] = vertexBuffer[index].position;
+
+    bool shouldLoadLeft = threadId.x == 0 & id.x > 0;
+    bool shouldLoadRight = threadId.x == NUM_THREADS - 1 & id.x < _GridCount.x - 1;
+    bool shouldLoadBackward = threadId.y == 0;
+    bool shouldLoadForward = threadId.y == NUM_THREADS - 1 & id.y + 1 < _GridCount.y - 1;
+
+    bool isSecondLeftValid = id.x > 1;
+    bool isSecondRightValid = id.x < _GridCount.x - 2;
+    bool isSecondBackwardValid = id.y > 0;
+    bool isSecondForwardValid = id.y + 1 < _GridCount.x - 2;
+
+    /*
+     * Loading external data into group-shared memory for thread group boundary points:
+     */
+    if (shouldLoadLeft) 
+    {
+        localData[localIndex - 1] = predictedPositionBuffer[index - 1];
+        localPreviousStepData[localIndex - 1] = vertexBuffer[index - 1].position;
+    }
+    if (shouldLoadLeft & isSecondLeftValid)
+    {
+        localData[localIndex - 2] = predictedPositionBuffer[index - 2];
+        localPreviousStepData[localIndex - 2] = vertexBuffer[index - 2].position;
+    }
+
+    if (shouldLoadRight) 
+    {
+        localData[localIndex + 1] = predictedPositionBuffer[index + 1];
+        localPreviousStepData[localIndex + 1] = vertexBuffer[index + 1].position;
+    }
+    if (shouldLoadRight & isSecondRightValid)
+    {
+        localData[localIndex + 2] = predictedPositionBuffer[index + 2];
+        localPreviousStepData[localIndex + 2] = vertexBuffer[index + 2].position;    
+    }
+
+    if (shouldLoadBackward) 
+    {
+        localData[localIndex - LOCAL_DATA_LENGTH] = predictedPositionBuffer[index - _GridCount.x];
+        localPreviousStepData[localIndex - LOCAL_DATA_LENGTH] = vertexBuffer[index - _GridCount.x].position;
+    }
+    if (shouldLoadBackward & isSecondBackwardValid)
+    {
+        localData[localIndex - LOCAL_DATA_LENGTH * 2] = predictedPositionBuffer[index - _GridCount.x * 2];
+        localPreviousStepData[localIndex - LOCAL_DATA_LENGTH * 2] = vertexBuffer[index - _GridCount.x * 2].position;
+    }
+
+    if (shouldLoadForward) 
+    {
+        localData[localIndex + LOCAL_DATA_LENGTH] = predictedPositionBuffer[index + _GridCount.x];
+        localPreviousStepData[localIndex + LOCAL_DATA_LENGTH] = vertexBuffer[index + _GridCount.x].position;
+    }
+    if (shouldLoadForward & isSecondForwardValid)
+    {
+        localData[localIndex + LOCAL_DATA_LENGTH * 2] = predictedPositionBuffer[index + _GridCount.x * 2];
+        localPreviousStepData[localIndex + LOCAL_DATA_LENGTH * 2] = vertexBuffer[index + _GridCount.x * 2].position;    
+    }
+
+    /*
+     * Loading external data into group-shared memory for thread group corner points:
+     */
+     if (shouldLoadLeft & shouldLoadBackward)
+    {
+        localData[localIndex - LOCAL_DATA_LENGTH - 1] = predictedPositionBuffer[index - _GridCount.x - 1];
+        localPreviousStepData[localIndex - LOCAL_DATA_LENGTH - 1] = vertexBuffer[index - _GridCount.x - 1].position;
+    }
+    if (shouldLoadLeft & shouldLoadBackward & isSecondLeftValid)
+    {
+        localData[localIndex - LOCAL_DATA_LENGTH - 2] = predictedPositionBuffer[index - _GridCount.x - 2];
+        localPreviousStepData[localIndex - LOCAL_DATA_LENGTH - 2] = vertexBuffer[index - _GridCount.x - 2].position;
+    }
+    if (shouldLoadLeft & shouldLoadBackward & isSecondBackwardValid)
+    {
+        localData[localIndex - LOCAL_DATA_LENGTH * 2 - 1] = predictedPositionBuffer[index - _GridCount.x * 2 - 1];
+        localPreviousStepData[localIndex - LOCAL_DATA_LENGTH * 2 - 1] = vertexBuffer[index - _GridCount.x * 2 - 1].position;
+    }
+    if (shouldLoadLeft & shouldLoadBackward & isSecondLeftValid & isSecondBackwardValid)
+    {
+        localData[localIndex - LOCAL_DATA_LENGTH * 2 - 2] = predictedPositionBuffer[index - _GridCount.x * 2 - 2];
+        localPreviousStepData[localIndex - LOCAL_DATA_LENGTH * 2 - 2] = vertexBuffer[index - _GridCount.x * 2 - 2].position;
+    }
+
+    if (shouldLoadLeft & shouldLoadForward)
+    {
+        localData[localIndex + LOCAL_DATA_LENGTH - 1] = predictedPositionBuffer[index + _GridCount.x - 1];
+        localPreviousStepData[localIndex + LOCAL_DATA_LENGTH - 1] = vertexBuffer[index + _GridCount.x - 1].position;
+    }
+    if (shouldLoadLeft & shouldLoadForward & isSecondLeftValid)
+    {
+        localData[localIndex + LOCAL_DATA_LENGTH - 2] = predictedPositionBuffer[index + _GridCount.x - 2];
+        localPreviousStepData[localIndex + LOCAL_DATA_LENGTH - 2] = vertexBuffer[index + _GridCount.x - 2].position;    
+    }
+    if (shouldLoadLeft & shouldLoadForward & isSecondForwardValid)
+    {
+        localData[localIndex + LOCAL_DATA_LENGTH * 2 - 1] = predictedPositionBuffer[index + _GridCount.x * 2 - 1];
+        localPreviousStepData[localIndex + LOCAL_DATA_LENGTH * 2 - 1] = vertexBuffer[index + _GridCount.x * 2 - 1].position;    
+    }
+    if (shouldLoadLeft & shouldLoadForward & isSecondLeftValid & isSecondForwardValid)
+    {
+        localData[localIndex + LOCAL_DATA_LENGTH * 2 - 2] = predictedPositionBuffer[index + _GridCount.x * 2 - 2];
+        localPreviousStepData[localIndex + LOCAL_DATA_LENGTH * 2 - 2] = vertexBuffer[index + _GridCount.x * 2 - 2].position;    
+    }
+
+    if (shouldLoadRight & shouldLoadBackward)
+    {
+        localData[localIndex - LOCAL_DATA_LENGTH + 1] = predictedPositionBuffer[index - _GridCount.x + 1];
+        localPreviousStepData[localIndex - LOCAL_DATA_LENGTH + 1] = vertexBuffer[index - _GridCount.x + 1].position;
+    }
+    if (shouldLoadRight & shouldLoadBackward & isSecondRightValid)
+    {
+        localData[localIndex - LOCAL_DATA_LENGTH + 2] = predictedPositionBuffer[index - _GridCount.x + 2];
+        localPreviousStepData[localIndex - LOCAL_DATA_LENGTH + 2] = vertexBuffer[index - _GridCount.x + 2].position;
+    }
+    if (shouldLoadRight & shouldLoadBackward & isSecondBackwardValid)
+    {
+        localData[localIndex - LOCAL_DATA_LENGTH * 2 + 1] = predictedPositionBuffer[index - _GridCount.x * 2 + 1];
+        localPreviousStepData[localIndex - LOCAL_DATA_LENGTH * 2 + 1] = vertexBuffer[index - _GridCount.x * 2 + 1].position;
+    }
+    if (shouldLoadRight & shouldLoadBackward & isSecondRightValid & isSecondBackwardValid)
+    {
+        localData[localIndex - LOCAL_DATA_LENGTH * 2 + 2] = predictedPositionBuffer[index - _GridCount.x * 2 + 2];
+        localPreviousStepData[localIndex - LOCAL_DATA_LENGTH * 2 + 2] = vertexBuffer[index - _GridCount.x * 2 + 2].position;
+    }
+
+    if (shouldLoadRight & shouldLoadForward)
+    {
+        localData[localIndex + LOCAL_DATA_LENGTH + 1] = predictedPositionBuffer[index + _GridCount.x + 1];
+        localPreviousStepData[localIndex + LOCAL_DATA_LENGTH + 1] = vertexBuffer[index + _GridCount.x + 1].position;
+    }
+    if (shouldLoadRight & shouldLoadForward & isSecondRightValid)
+    {
+        localData[localIndex + LOCAL_DATA_LENGTH + 2] = predictedPositionBuffer[index + _GridCount.x + 2];
+        localPreviousStepData[localIndex + LOCAL_DATA_LENGTH + 2] = vertexBuffer[index + _GridCount.x + 2].position;    
+    }
+    if (shouldLoadRight & shouldLoadForward & isSecondForwardValid)
+    {
+        localData[localIndex + LOCAL_DATA_LENGTH * 2 + 1] = predictedPositionBuffer[index + _GridCount.x * 2 + 1];
+        localPreviousStepData[localIndex + LOCAL_DATA_LENGTH * 2 + 1] = vertexBuffer[index + _GridCount.x * 2 + 1].position;    
+    }
+    if (shouldLoadRight & shouldLoadForward & isSecondRightValid & isSecondForwardValid)
+    {
+        localData[localIndex + LOCAL_DATA_LENGTH * 2 + 2] = predictedPositionBuffer[index + _GridCount.x * 2 + 2];
+        localPreviousStepData[localIndex + LOCAL_DATA_LENGTH * 2 + 2] = vertexBuffer[index + _GridCount.x * 2 + 2].position;    
+    }
+}
+
+float3 ComputePinchPosition(float3 previousPosition)
+{
+    float3 delta = _PinchPoint - previousPosition;
+    float3 dampingFactor = 1 / (1 + _PinchDampingEffect + _PinchCompliance);
+
+    return previousPosition + dampingFactor * delta;
+}
+
+void ApplyPinchDeform(uint3 id, uint localDataX, uint localDataY)
+{
+    int2 idDelta = id.xy - _PinchId;
+    uint2 absIdDelta = abs(idDelta);
+
+    if (absIdDelta.x <= 1 & absIdDelta.y <= 1 & !(idDelta.x == 0 & idDelta.y == 0))
+    {
+        uint localIndex = localDataY * LOCAL_DATA_LENGTH + localDataX;
+
+        uint pinchLocalX = localDataX - idDelta.x;
+        uint pinchLocalY = localDataY - idDelta.y;
+        uint pinchLocalIndex = pinchLocalY * LOCAL_DATA_LENGTH + pinchLocalX;
+        float3 pinchPosition = localData[pinchLocalIndex];
+        
+        float3 targetDir = idDelta.x * _GridSize.x * _PinchRight + idDelta.y * _GridSize.y * _PinchForward;
+        float3 targetPosition = pinchPosition + targetDir;
+        float3 dampingFactor = 1 / (1 + _PinchRotationDampingEffect + _PinchRotationCompliance);
+
+        localData[localIndex] += dampingFactor * (targetPosition - localData[localIndex]);
+    }
+}
+
+void ApplyStretchConstraint(uint targetLocalIndex, uint referenceLocalIndex, float originalLength, float compliance, float dampingEffect)
+{
+    float3 currentPosition = localData[targetLocalIndex];
+    float3 referencePosition = localData[referenceLocalIndex];
+
+    float3 currentDir = currentPosition - referencePosition;
+    float currentLength = length(currentDir);
+    if (currentLength < 1e-6)
+        return;
+
+    float3 stepTargetDelta = currentPosition - localPreviousStepData[targetLocalIndex];
+    float3 stepReferenceDelta = referencePosition - localPreviousStepData[referenceLocalIndex];    
+
+    float constraint = currentLength - originalLength;
+    float3 grad = normalize(currentDir);
+    float lambda = - (constraint + dampingEffect * (dot(-grad, stepTargetDelta) + dot(grad, stepReferenceDelta))) / (2 * (1 + dampingEffect) + compliance);
+
+    localData[targetLocalIndex] += lambda * grad;
+}
+
+void ResetAccumulationData(uint3 threadId)
+{
+    uint startIndex = threadId.y * NUM_THREADS + threadId.x;
+
+    for (uint i = 0; i < ACCUMULATED_VERTEX_PER_THREAD; ++i)
+    {
+        uint index = i * (NUM_THREADS * NUM_THREADS) + startIndex;
+        accumulatedDeltaData[index] = float3(0, 0, 0);
+        numConstraintData[index] = 0;
+    }
+}
+
+inline float SafeCotangent(float3 a, float3 b, float epsilon = 1e-6f)
+{
+    float3 crossProd = cross(a, b);
+    float crossLen = length(crossProd);
+    float dotProd = dot(a, b);
+    return dotProd / max(crossLen, epsilon);
+}
+
+void ApplyIsometricBendConstraintImpl(
+    uint p0Idx, uint p1Idx, uint p2Idx, uint p3Idx, // Local Data Index
+    uint p0AcmIdx, uint p1AcmIdx, uint p2AcmIdx, uint p3AcmIdx, // Accumulation Data Index
+    float c01, float c02, float c03, float c04, float areaSum, // Parameters of Hessian bending energy calculation
+    float compliance, float dampingEffect)
+{
+    float3 p0 = localData[p0Idx];
+    float3 p1 = localData[p1Idx];
+    float3 p2 = localData[p2Idx];
+    float3 p3 = localData[p3Idx];
+
+    float3 d0 = p0 - localPreviousStepData[p0Idx];
+    float3 d1 = p1 - localPreviousStepData[p1Idx];
+    float3 d2 = p2 - localPreviousStepData[p2Idx];
+    float3 d3 = p3 - localPreviousStepData[p3Idx];
+
+    float4 K = float4(c01 + c04, c02 + c03, -c01 - c02, -c03 - c04);
+
+    float coef = 3.0f / areaSum;
+    float3 product = K[0] * p0 + K[1] * p1 + K[2] * p2 + K[3] * p3;
+
+    float3 grad0 = coef * K[0] * product;
+    float3 grad1 = coef * K[1] * product;
+    float3 grad2 = coef * K[2] * product;
+    float3 grad3 = coef * K[3] * product;
+
+    float C = 0.5f * (dot(grad0, p0) + dot(grad1, p1) + dot(grad2, p2) + dot(grad3, p3));
+    float velocityTerm = dot(grad0, d0) + dot(grad1, d1) + dot(grad2, d2) + dot(grad3, d3);
+
+    float gradSum =
+        dot(grad0, grad0) + dot(grad1, grad1) + dot(grad2, grad2) + dot(grad3, grad3);
+
+    float denom = (1.0f + dampingEffect) * gradSum + compliance;
+    if (denom < 1e-8f) return;
+
+    float lambda = -(C + dampingEffect * velocityTerm) / denom;
+
+    if (p0AcmIdx < ACCUMULATION_DATA_COUNT)
+        accumulatedDeltaData[p0AcmIdx] += lambda * grad0;    
+    if (p1AcmIdx < ACCUMULATION_DATA_COUNT)
+        accumulatedDeltaData[p1AcmIdx] += lambda * grad1;
+    if (p2AcmIdx < ACCUMULATION_DATA_COUNT)
+        accumulatedDeltaData[p2AcmIdx] += lambda * grad2;
+    if (p3AcmIdx < ACCUMULATION_DATA_COUNT)
+        accumulatedDeltaData[p3AcmIdx] += lambda * grad3;
+
+    if (p0AcmIdx < ACCUMULATION_DATA_COUNT)
+        numConstraintData[p0AcmIdx] += 1;
+    if (p1AcmIdx < ACCUMULATION_DATA_COUNT)
+        numConstraintData[p1AcmIdx] += 1;
+    if (p2AcmIdx < ACCUMULATION_DATA_COUNT)
+        numConstraintData[p2AcmIdx] += 1;
+    if (p3AcmIdx < ACCUMULATION_DATA_COUNT)
+        numConstraintData[p3AcmIdx] += 1;
+}
+
+void AccumulateBendingConstraint(uint3 id, uint3 threadId, uint localIndex)
+{
+    bool isLeftValid = id.x > 0;
+    bool isRightValid = id.x < _GridCount.x - 1;
+    bool isForwardValid = id.y + 1 < _GridCount.y - 1;
+    
+    bool isSecondLeftValid = id.x > 1;
+    bool isSecondRightValid = id.x < _GridCount.x - 2;
+    bool isSecondBackwardValid = id.y > 0;
+    bool isSecondForwardValid = id.y + 1 < _GridCount.x - 2;
+
+    bool isOnGroupLeftEdge = threadId.x == 0;
+    bool isOnGroupRightEdge = threadId.x == NUM_THREADS - 1;
+    bool isOnGroupBackwardEdge = threadId.y == 0;
+    bool isOnGroupForwardEdge = threadId.y == NUM_THREADS - 1;
+
+    uint localIndex_Left  = localIndex - 1;
+    uint localIndex_Right = localIndex + 1;
+    uint localIndex_BackWard  = localIndex - LOCAL_DATA_LENGTH;
+    uint localIndex_Forward = localIndex + LOCAL_DATA_LENGTH;
+    uint localIndex_LeftBackward  = localIndex - LOCAL_DATA_LENGTH - 1;
+    uint localIndex_LeftForward  = localIndex + LOCAL_DATA_LENGTH - 1;
+    uint localIndex_RightBackward = localIndex - LOCAL_DATA_LENGTH + 1;
+    uint localIndex_RightForward = localIndex + LOCAL_DATA_LENGTH + 1;
+
+    uint threadLinearIndex = threadId.y * NUM_THREADS + threadId.x;
+
+    uint accumulIndex = 0 * (NUM_THREADS * NUM_THREADS) + threadLinearIndex;
+    uint accumulIndex_Right = 1 * (NUM_THREADS * NUM_THREADS) + threadLinearIndex;
+    uint accumulIndex_RightBackward = 2 * (NUM_THREADS * NUM_THREADS) + threadLinearIndex;
+    uint accumulIndex_Backward = 3 * (NUM_THREADS * NUM_THREADS) + threadLinearIndex;
+    uint accumulIndex_LeftBackward = 4 * (NUM_THREADS * NUM_THREADS) + threadLinearIndex;
+    uint accumulIndex_Left = 5 * (NUM_THREADS * NUM_THREADS) + threadLinearIndex;
+    uint accumulIndex_LeftForward = 6 * (NUM_THREADS * NUM_THREADS) + threadLinearIndex;
+    uint accumulIndex_Forward = 7 * (NUM_THREADS * NUM_THREADS) + threadLinearIndex;
+
+    float areaSum = _GridSize.x * _GridSize.y;
+    float horizontalCot = _GridSize.x / _GridSize.y;
+    float verticalCot = _GridSize.y / _GridSize.x;
+
+    float bendDiagonalCompliance = sqrt(_BendHorizontalCompliance * _BendVerticalCompliance);
+    float bendDiagonalDampingEffect = sqrt(_BendHorizontalDampingEffect * _BendVerticalDampingEffect);
+
+    if (isLeftValid)
+    {
+        ApplyIsometricBendConstraintImpl(
+            localIndex, localIndex_LeftBackward, localIndex_Left, localIndex_BackWard,
+            accumulIndex, accumulIndex_LeftBackward, accumulIndex_Left, accumulIndex_Backward,
+            verticalCot, horizontalCot, verticalCot, horizontalCot, areaSum,
+            bendDiagonalCompliance, bendDiagonalDampingEffect
+        ); // Common Edge: Left Back
+        ApplyIsometricBendConstraintImpl(
+            localIndex_Left, localIndex_BackWard, localIndex_LeftBackward, localIndex,
+            accumulIndex_Left, accumulIndex_Backward, accumulIndex_LeftBackward, accumulIndex,
+            horizontalCot, verticalCot, horizontalCot, verticalCot, areaSum,
+            bendDiagonalCompliance, bendDiagonalDampingEffect
+        ); // Left Back (anti-diag)
+    }
+
+    if (isLeftValid & isRightValid)
+    {
+        ApplyIsometricBendConstraintImpl(
+            localIndex, localIndex_BackWard, localIndex_LeftBackward, localIndex_RightBackward,
+            accumulIndex, accumulIndex_Backward, accumulIndex_LeftBackward, accumulIndex_RightBackward,
+            0, verticalCot, verticalCot, 0, areaSum,
+            _BendVerticalCompliance, _BendVerticalDampingEffect
+        ); // Back
+        ApplyIsometricBendConstraintImpl(
+            localIndex, localIndex_BackWard, localIndex_Left, localIndex_Right,
+            accumulIndex, accumulIndex_Backward, accumulIndex_Left, accumulIndex_Right,
+            verticalCot, 0, 0, verticalCot, areaSum,
+            _BendVerticalCompliance, _BendVerticalDampingEffect
+        ); // Back (anti-diag)
+    }
+
+    if (isLeftValid & isForwardValid)
+    {
+        ApplyIsometricBendConstraintImpl(
+            localIndex, localIndex_Left, localIndex_LeftForward, localIndex_LeftBackward,
+            accumulIndex, accumulIndex_Left, accumulIndex_LeftForward, accumulIndex_LeftBackward,
+            0, horizontalCot, horizontalCot, 0, areaSum,
+            _BendHorizontalCompliance, _BendHorizontalDampingEffect
+        ); // Left
+        ApplyIsometricBendConstraintImpl(
+            localIndex, localIndex_Left, localIndex_Forward, localIndex_BackWard,
+            accumulIndex, accumulIndex_Left, accumulIndex_Forward, accumulIndex_Backward,
+            horizontalCot, 0, 0, horizontalCot, areaSum,
+            _BendHorizontalCompliance, _BendHorizontalDampingEffect
+        );// Left (anti-diag)
+    }
+
+    /*
+     * Handling special cases for thread group boundary points
+     */
+    // Left Edge
+    if (isOnGroupLeftEdge & isSecondLeftValid)
+    {
+        ApplyIsometricBendConstraintImpl(
+            localIndex_Left, localIndex_LeftBackward, localIndex - 2, localIndex,
+            accumulIndex_Left, accumulIndex_LeftBackward, -1, accumulIndex,
+            verticalCot, 0, 0, verticalCot, areaSum,
+            _BendVerticalCompliance, _BendVerticalDampingEffect
+        );// Back on Next Left
+    }
+    if (isOnGroupLeftEdge & isSecondLeftValid & isForwardValid)
+    {
+        ApplyIsometricBendConstraintImpl(
+            localIndex_Left, localIndex_LeftForward, localIndex, localIndex - 2,
+            accumulIndex_Left, accumulIndex_LeftBackward, accumulIndex, -1,
+            verticalCot, 0, 0, verticalCot, areaSum,
+            _BendVerticalCompliance, _BendVerticalDampingEffect
+        ); // Forward on Next Left
+    }
+
+    // Right Edge
+    if (isOnGroupRightEdge & isRightValid)
+    {
+        ApplyIsometricBendConstraintImpl(
+            localIndex, localIndex_RightBackward, localIndex_BackWard, localIndex_Right,
+            accumulIndex, accumulIndex_RightBackward, accumulIndex_Backward, accumulIndex_Right,
+            horizontalCot, verticalCot, horizontalCot, verticalCot, areaSum,
+            bendDiagonalCompliance, bendDiagonalDampingEffect
+        ); // Right Back
+        ApplyIsometricBendConstraintImpl(
+            localIndex_Right, localIndex_BackWard, localIndex, localIndex_RightBackward,
+            accumulIndex_Right, accumulIndex_Backward, accumulIndex, accumulIndex_RightBackward,
+            verticalCot, horizontalCot, verticalCot, horizontalCot, areaSum,
+            bendDiagonalCompliance, bendDiagonalDampingEffect
+        ); // Right Back (anti-diag)
+    }
+    if (isOnGroupRightEdge & isRightValid & isForwardValid)
+    {
+        ApplyIsometricBendConstraintImpl(
+            localIndex, localIndex_Right, localIndex_RightBackward, localIndex_RightForward,
+            accumulIndex, accumulIndex_Right, accumulIndex_RightBackward, -1,
+            0, horizontalCot, horizontalCot, 0, areaSum,
+            _BendHorizontalCompliance, _BendHorizontalDampingEffect
+        ); // Right
+        ApplyIsometricBendConstraintImpl(
+            localIndex, localIndex_Right, localIndex_BackWard, localIndex_Forward,
+            accumulIndex, accumulIndex_Right, accumulIndex_Backward, accumulIndex_Forward,
+            horizontalCot, 0, 0, horizontalCot, areaSum,
+            _BendHorizontalCompliance, _BendHorizontalDampingEffect
+        ); // Right (anti-diag)
+    }
+    if (isOnGroupRightEdge & isSecondRightValid)
+    {
+        ApplyIsometricBendConstraintImpl(
+            localIndex_Right, localIndex_RightBackward, localIndex, localIndex + 2,
+            accumulIndex_Right, accumulIndex_RightBackward, accumulIndex, -1,
+            verticalCot, 0, 0, verticalCot, areaSum,
+            _BendVerticalCompliance, _BendVerticalDampingEffect
+        ); // Back on Next Right
+    }
+    if (isOnGroupRightEdge & isForwardValid & isSecondRightValid)
+    {
+        ApplyIsometricBendConstraintImpl(
+            localIndex_Right, localIndex_RightForward, localIndex, localIndex + 2,
+            accumulIndex_Right, -1, accumulIndex, -1,
+            verticalCot, 0, 0, verticalCot, areaSum,
+            _BendVerticalCompliance, _BendVerticalDampingEffect
+        ); // Forward on Next Right
+    }
+    
+    // Backward Edge
+    /* 
+     * TODO: Investigate this constraint. It should be necessary,  
+     * but it appears to cause issues with Y-axis thread group boundaries,  
+     * so it is currently commented out.
+     *
+    if (isOnGroupBackwardEdge & isLeftValid & isSecondBackwardValid)
+    {
+        ApplyIsometricBendConstraintImpl(
+            localIndex_BackWard, localIndex_LeftBackward, localIndex, localIndex - 2 * LOCAL_DATA_LENGTH,
+            accumulIndex_Backward, accumulIndex_LeftBackward, accumulIndex, -1,
+            horizontalCot, 0, 0, horizontalCot, areaSum,
+            _BendHorizontalCompliance, _BendHorizontalDampingEffect
+        ); // Left on Next Back
+    }
+    if (isOnGroupBackwardEdge & isRightValid & isSecondBackwardValid)
+    {
+        ApplyIsometricBendConstraintImpl(
+            localIndex_BackWard, localIndex_RightBackward, localIndex - 2 * LOCAL_DATA_LENGTH, localIndex,
+            accumulIndex_Backward, accumulIndex_RightBackward, -1, accumulIndex,
+            horizontalCot, 0, 0, horizontalCot, areaSum,
+            _BendHorizontalCompliance, _BendHorizontalDampingEffect
+        ); // Right on Next Back
+    }
+    */
+
+    // Forward Edge
+    if (isOnGroupForwardEdge & isForwardValid & isLeftValid)
+    {
+        ApplyIsometricBendConstraintImpl(
+            localIndex, localIndex_LeftForward, localIndex_Forward, localIndex_Left,
+            accumulIndex, accumulIndex_LeftForward, accumulIndex_Forward, accumulIndex_Left,
+            horizontalCot, verticalCot, horizontalCot, verticalCot, areaSum,
+            bendDiagonalCompliance, bendDiagonalDampingEffect
+        ); // Left Forward
+        ApplyIsometricBendConstraintImpl(
+            localIndex_Forward, localIndex_Left, localIndex, localIndex_LeftForward,
+            accumulIndex_Forward, accumulIndex_Left, accumulIndex, accumulIndex_LeftForward,
+            horizontalCot, verticalCot, horizontalCot, verticalCot, areaSum,
+            bendDiagonalCompliance, bendDiagonalDampingEffect
+        ); // Left Forward (anti-diag)
+    }
+    if (isOnGroupForwardEdge & isLeftValid & isSecondForwardValid)
+    {
+        ApplyIsometricBendConstraintImpl(
+            localIndex_Forward, localIndex_LeftForward, localIndex + 2 * LOCAL_DATA_LENGTH, localIndex,
+            accumulIndex_Forward, accumulIndex_LeftForward, -1, accumulIndex,
+            horizontalCot, 0, 0, horizontalCot, areaSum,
+            _BendHorizontalCompliance, _BendHorizontalDampingEffect
+        ); // Left On Next Forward
+    }
+    if (isOnGroupForwardEdge & isRightValid & isSecondForwardValid)
+    {
+        ApplyIsometricBendConstraintImpl(
+            localIndex_Forward, localIndex_RightForward, localIndex, localIndex + 2 * LOCAL_DATA_LENGTH,
+            accumulIndex_Forward, -1, accumulIndex, -1,
+            horizontalCot, 0, 0, horizontalCot, areaSum,
+            _BendHorizontalCompliance, _BendHorizontalDampingEffect
+        ); // Right On Next Forward
+    }
+    if (isOnGroupForwardEdge & isForwardValid & isLeftValid & isRightValid)
+    {
+        ApplyIsometricBendConstraintImpl(
+            localIndex, localIndex_Forward, localIndex_RightForward, localIndex_LeftForward,
+            accumulIndex, accumulIndex_Forward, -1, accumulIndex_LeftForward,
+            0, verticalCot, verticalCot, 0, areaSum,
+            _BendVerticalCompliance, _BendVerticalDampingEffect
+        ); // Forward
+        ApplyIsometricBendConstraintImpl(
+            localIndex, localIndex_Forward, localIndex_Right, localIndex_Left,
+            accumulIndex, accumulIndex_Forward, accumulIndex_Right, accumulIndex_Left,
+            verticalCot, 0, 0, verticalCot, areaSum,
+            _BendVerticalCompliance, _BendVerticalDampingEffect
+        ); // Forward (anti-diag)
+    }
+
+    /*
+     * Handling special cases for thread group corner points
+     */
+     // Right Forward Corner
+    if (isOnGroupRightEdge & isOnGroupForwardEdge & isRightValid & isForwardValid)
+    {
+        ApplyIsometricBendConstraintImpl(
+            localIndex, localIndex_RightForward, localIndex_Right, localIndex_Forward,
+            accumulIndex, -1, accumulIndex_Right, accumulIndex_Forward,
+            verticalCot, horizontalCot, verticalCot, horizontalCot, areaSum,
+            bendDiagonalCompliance, bendDiagonalDampingEffect
+        ); // Right Forward
+        ApplyIsometricBendConstraintImpl(
+            localIndex_Right, localIndex_Forward, localIndex_RightForward, localIndex,
+            accumulIndex_Right, accumulIndex_Forward, -1, accumulIndex,
+            horizontalCot, verticalCot, horizontalCot, verticalCot, areaSum,
+            bendDiagonalCompliance, bendDiagonalDampingEffect
+        ); // Right Forward (anti-diag)
+    }
+}
+
+void ApplyAccumulationData(uint localIndex, uint3 threadId)
+{
+    bool isOnGroupLeftEdge = threadId.x == 0;
+    bool isOnGroupRightEdge = threadId.x == NUM_THREADS - 1;
+    bool isOnGroupBackwardEdge = threadId.y == 0;
+    bool isOnGroupForwardEdge = threadId.y == NUM_THREADS - 1;
+
+    uint accumulIndex_FromSelf          = 0 * (NUM_THREADS * NUM_THREADS) + (threadId.y + 0) * NUM_THREADS + threadId.x;
+    uint accumulIndex_FromLeft          = 1 * (NUM_THREADS * NUM_THREADS) + (threadId.y + 0) * NUM_THREADS + threadId.x - 1;
+    uint accumulIndex_FromLeftForward   = 2 * (NUM_THREADS * NUM_THREADS) + (threadId.y + 1) * NUM_THREADS + threadId.x - 1;
+    uint accumulIndex_FromForward       = 3 * (NUM_THREADS * NUM_THREADS) + (threadId.y + 1) * NUM_THREADS + threadId.x;
+    uint accumulIndex_FromRightForward  = 4 * (NUM_THREADS * NUM_THREADS) + (threadId.y + 1) * NUM_THREADS + threadId.x + 1;
+    uint accumulIndex_FromRight         = 5 * (NUM_THREADS * NUM_THREADS) + (threadId.y + 0) * NUM_THREADS + threadId.x + 1;
+    uint accumulIndex_FromRightBackward = 6 * (NUM_THREADS * NUM_THREADS) + (threadId.y - 1) * NUM_THREADS + threadId.x + 1;
+    uint accumulIndex_FromBackward      = 7 * (NUM_THREADS * NUM_THREADS) + (threadId.y - 1) * NUM_THREADS + threadId.x;
+
+    float3 accumulatedDelta =
+        accumulatedDeltaData[accumulIndex_FromSelf] +
+        (isOnGroupRightEdge ? 0 : accumulatedDeltaData[accumulIndex_FromRight]) +
+        (isOnGroupLeftEdge  ? 0 : accumulatedDeltaData[accumulIndex_FromLeft]) +
+        (isOnGroupForwardEdge ? 0 : accumulatedDeltaData[accumulIndex_FromForward]) +
+        (isOnGroupBackwardEdge ? 0 : accumulatedDeltaData[accumulIndex_FromBackward]) +
+        (isOnGroupRightEdge || isOnGroupBackwardEdge ? 0 : accumulatedDeltaData[accumulIndex_FromRightBackward]) +
+        (isOnGroupLeftEdge  || isOnGroupForwardEdge ? 0 : accumulatedDeltaData[accumulIndex_FromLeftForward]) +
+        (isOnGroupRightEdge || isOnGroupForwardEdge ? 0 : accumulatedDeltaData[accumulIndex_FromRightForward]);
+
+    uint totalConstraints =
+        numConstraintData[accumulIndex_FromSelf] +
+        (isOnGroupRightEdge ? 0 : numConstraintData[accumulIndex_FromRight]) +
+        (isOnGroupLeftEdge  ? 0 : numConstraintData[accumulIndex_FromLeft]) +
+        (isOnGroupForwardEdge ? 0 : numConstraintData[accumulIndex_FromForward]) +
+        (isOnGroupBackwardEdge ? 0 : numConstraintData[accumulIndex_FromBackward]) +
+        (isOnGroupRightEdge || isOnGroupBackwardEdge ? 0 : numConstraintData[accumulIndex_FromRightBackward]) +
+        (isOnGroupLeftEdge  || isOnGroupForwardEdge ? 0 : numConstraintData[accumulIndex_FromLeftForward]) +
+        (isOnGroupRightEdge || isOnGroupForwardEdge ? 0 : numConstraintData[accumulIndex_FromRightForward]);
+
+    localData[localIndex] += (totalConstraints > 0) ? (accumulatedDelta / totalConstraints * _BendSORFactor) : float3(0, 0, 0);
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID, uint3 threadId : SV_GroupThreadID)
+{
+    bool isValid = id.x < _GridCount.x & id.y + 1 < _GridCount.y;
+
+    uint index = (id.y + 1) * _GridCount.x + id.x;
+
+    uint localDataX = threadId.x + 1;
+    uint localDataY = threadId.y + 1;
+
+    uint localIndex = localDataY * LOCAL_DATA_LENGTH + localDataX;
+
+    bool isLeftValid = id.x > 0;
+    bool isRightValid = id.x < _GridCount.x - 1;
+    // The backward vertex is always valid.
+    bool isForwardValid = id.y + 1 < _GridCount.y - 1;
+
+    if (isValid)
+    {    
+        LoadVertexData(id, threadId, index, localIndex);
+
+        if (_IsPinched & id.x == _PinchId.x & id.y == _PinchId.y)
+        {
+            localData[localIndex] = ComputePinchPosition(localData[localIndex]);
+        }
+    }
+
+    GroupMemoryBarrierWithGroupSync();
+
+    if (_IsPinched)
+    {
+        if (isValid)
+        {
+            ApplyPinchDeform(id, localDataX, localDataY);
+        }
+
+        GroupMemoryBarrierWithGroupSync();
+    }
+
+    if (isValid)
+    {
+        if (isLeftValid) 
+            ApplyStretchConstraint(localIndex, localIndex - 1, _GridSize.x, _StretchCompliance, _StretchDampingEffect);
+        if (isRightValid) 
+            ApplyStretchConstraint(localIndex, localIndex + 1, _GridSize.x, _StretchCompliance, _StretchDampingEffect);
+
+        ApplyStretchConstraint(localIndex, localIndex - LOCAL_DATA_LENGTH, _GridSize.y, _StretchCompliance, _StretchDampingEffect);
+        if (isForwardValid) 
+            ApplyStretchConstraint(localIndex, localIndex + LOCAL_DATA_LENGTH, _GridSize.y, _StretchCompliance, _StretchDampingEffect);
+    }
+
+    GroupMemoryBarrierWithGroupSync();
+
+    if (isValid)
+    {
+        ResetAccumulationData(threadId);
+        AccumulateBendingConstraint(id, threadId, localIndex);
+    }
+
+    GroupMemoryBarrierWithGroupSync();
+
+    if (isValid)
+    {
+        ApplyAccumulationData(localIndex, threadId);
+    }
+
+    GroupMemoryBarrierWithGroupSync();
+
+    if (isValid)
+    {
+        float originalDiagLength = length(_GridSize);
+
+        if (isLeftValid)
+            ApplyStretchConstraint(localIndex, localIndex - LOCAL_DATA_LENGTH - 1, originalDiagLength, _DiagStretchCompliance, _DiagStretchDampingEffect);
+        if (isLeftValid & isForwardValid)
+            ApplyStretchConstraint(localIndex, localIndex + LOCAL_DATA_LENGTH - 1, originalDiagLength, _DiagStretchCompliance, _DiagStretchDampingEffect);
+        if (isRightValid)
+            ApplyStretchConstraint(localIndex, localIndex - LOCAL_DATA_LENGTH + 1, originalDiagLength, _DiagStretchCompliance, _DiagStretchDampingEffect);
+        if (isRightValid & isForwardValid)
+            ApplyStretchConstraint(localIndex, localIndex + LOCAL_DATA_LENGTH + 1, originalDiagLength, _DiagStretchCompliance, _DiagStretchDampingEffect);
+    }
+
+    GroupMemoryBarrierWithGroupSync();
+
+    if (isValid)
+    {
+        if (isLeftValid) 
+            ApplyStretchConstraint(localIndex, localIndex - 1, _GridSize.x, _StretchCompliance, _StretchDampingEffect);
+        if (isRightValid) 
+            ApplyStretchConstraint(localIndex, localIndex + 1, _GridSize.x, _StretchCompliance, _StretchDampingEffect);
+
+        // The backward vertex is always valid.
+        ApplyStretchConstraint(localIndex, localIndex - LOCAL_DATA_LENGTH, _GridSize.y, _StretchCompliance, _StretchDampingEffect);
+        if (isForwardValid) 
+            ApplyStretchConstraint(localIndex, localIndex + LOCAL_DATA_LENGTH, _GridSize.y, _StretchCompliance, _StretchDampingEffect);
+    }
+
+    if (isValid)
+    {
+        predictedPositionBuffer[index] = localData[localIndex];
+    }
+}

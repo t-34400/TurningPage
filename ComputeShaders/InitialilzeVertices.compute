@@ -1,0 +1,27 @@
+#pragma kernel CSMain
+
+struct Vertex {
+    float3 position;
+    float2 uv;
+    float3 normals;
+};
+
+RWStructuredBuffer<Vertex> vertexBuffer;
+RWStructuredBuffer<float3> velocityBuffer;
+
+float2 _GridSize;
+uint2 _GridCount;
+bool _TurningForward;
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= _GridCount.x || id.y >= _GridCount.y)
+        return;
+
+    uint index = id.y * _GridCount.x + id.x;
+    int gridDir = _TurningForward ? 1 : -1;
+
+    vertexBuffer[index].position = float3(id.x * _GridSize.x, 0, gridDir * id.y * _GridSize.y);
+    velocityBuffer[index] = float3(0, 0, 0);
+}
