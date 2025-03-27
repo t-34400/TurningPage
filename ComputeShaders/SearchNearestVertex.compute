@@ -1,0 +1,155 @@
+#pragma kernel InitialAggregationKernel
+#pragma kernel FinalAggregationKernel
+
+#define FLT_MAX 3.402823466e+38
+
+struct Vertex {
+    float3 position;
+    float2 uv;
+    float3 normals;
+};
+
+RWStructuredBuffer<Vertex> vertexBuffer;
+RWBuffer<float> resultSqrDistanceBuffer;
+RWBuffer<uint> resultIndexBuffer;
+
+uint2 _GridCount;
+uint _VertexCount;
+uint _VerticesPerThread;
+uint _ResultBufferCount;
+
+float3 _QueryPoint;
+uint _FinalAggregationInterval;
+uint _FinalAggregationThreadCount;
+
+groupshared float localSqrDistanceData[64];
+groupshared uint localIndexData[64];
+
+[numthreads(64,1,1)]
+void InitialAggregationKernel (uint3 id : SV_DispatchThreadID, uint3 threadId : SV_GroupThreadID, uint3 groupId : SV_GroupID)
+{
+    float minSqrDistance = FLT_MAX;
+    uint nearestVertexIndex = -1;
+
+    for (uint iter = 0; iter < _VerticesPerThread; ++iter)
+    {
+        uint vertexIndex = iter * 64 * _ResultBufferCount + id.x;
+        if (vertexIndex >= _VertexCount)
+        {
+            continue;
+        }
+
+        vertexIndex += _GridCount.x;
+
+        float3 position = vertexBuffer[vertexIndex].position;
+        
+        float3 delta = position - _QueryPoint;
+        float sqrDistance = dot(delta, delta);
+
+        nearestVertexIndex = (sqrDistance < minSqrDistance) ? vertexIndex : nearestVertexIndex;
+        minSqrDistance = min(sqrDistance, minSqrDistance);
+    }
+
+    localSqrDistanceData[threadId.x] = minSqrDistance;
+    localIndexData[threadId.x] = nearestVertexIndex;
+
+    GroupMemoryBarrierWithGroupSync();
+
+    uint interval = 1;
+
+    while (interval < 64 * _VerticesPerThread)
+    {
+        if (threadId.x % (interval * _VerticesPerThread) == 0)
+        {
+            for (uint iter = 0; iter < _VerticesPerThread; ++iter)
+            {
+                uint localIndex = threadId.x + iter * interval;
+                if (localIndex >= 64)
+                    continue;
+
+                float sqrDistance = localSqrDistanceData[localIndex];
+                uint vertexIndex = localIndexData[localIndex];
+                
+                nearestVertexIndex = (sqrDistance < minSqrDistance) ? vertexIndex : nearestVertexIndex;
+                minSqrDistance = min(sqrDistance, minSqrDistance);        
+            }
+
+            localSqrDistanceData[threadId.x] = minSqrDistance;
+            localIndexData[threadId.x] = nearestVertexIndex;                    
+        }
+
+        GroupMemoryBarrierWithGroupSync();
+
+        interval *= _VerticesPerThread;
+    }
+
+    if (threadId.x == 0)
+    {
+        resultSqrDistanceBuffer[groupId.x] = minSqrDistance;
+        resultIndexBuffer[groupId.x] = nearestVertexIndex;
+    }
+}
+
+[numthreads(64,1,1)]
+void FinalAggregationKernel (uint3 id : SV_DispatchThreadID, uint3 threadId : SV_GroupThreadID)
+{
+    float minSqrDistance = FLT_MAX;
+    uint nearestVertexIndex = -1;
+
+    for (uint iter = 0; iter < _VerticesPerThread; ++iter)
+    {
+        uint resultIndex = (id.x + iter * _FinalAggregationThreadCount) * _FinalAggregationInterval;
+
+        if (resultIndex >= _ResultBufferCount)
+        {
+            return;
+        }
+
+        float sqrDistance = resultSqrDistanceBuffer[resultIndex];
+        uint vertexIndex = resultIndexBuffer[resultIndex];
+
+        nearestVertexIndex = (sqrDistance < minSqrDistance) ? vertexIndex : nearestVertexIndex;
+        minSqrDistance = min(sqrDistance, minSqrDistance);
+    }
+
+    localSqrDistanceData[threadId.x] = minSqrDistance;
+    localIndexData[threadId.x] = nearestVertexIndex;
+
+    GroupMemoryBarrierWithGroupSync();
+
+    uint interval = 1;
+
+    while (interval * _VerticesPerThread < 64)
+    {
+        if (threadId.x % (interval * _VerticesPerThread) == 0)
+        {
+            for (uint iter = 0; iter < _VerticesPerThread; ++iter)
+            {
+                uint localIndex = threadId.x + iter * interval;
+                if (localIndex >= 64)
+                    continue;
+
+                float sqrDistance = localSqrDistanceData[localIndex];
+                uint index = localIndexData[localIndex];
+                
+                nearestVertexIndex = (sqrDistance < minSqrDistance) ? index : nearestVertexIndex;
+                minSqrDistance = min(sqrDistance, minSqrDistance);        
+            }
+
+            localSqrDistanceData[threadId.x] = minSqrDistance;
+            localIndexData[threadId.x] = nearestVertexIndex;                    
+        }
+
+        GroupMemoryBarrierWithGroupSync();
+
+        interval *= _VerticesPerThread;
+    }
+
+    if (threadId.x == 0)
+    {
+        uint resultIndex = id.x * _FinalAggregationInterval;
+
+        resultSqrDistanceBuffer[resultIndex] = minSqrDistance;
+        resultIndexBuffer[resultIndex] = nearestVertexIndex;
+    }
+}

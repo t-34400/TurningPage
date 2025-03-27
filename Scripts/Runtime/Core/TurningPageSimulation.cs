@@ -19,16 +19,34 @@ namespace TurningPage
         [SerializeField] private PredictPositionsDispatcher predictPositionsDispatcher = default!;
         [SerializeField] private SolveOnFineGridDispatcher solveOnFineGridDispatcher = default!;
         [SerializeField] private UpdateVerticesDispatcher updateVerticesDispatcher = default!;
+        [SerializeField] private SearchNearestVertexDispatcher searchNearestVertexDispatcher = default!;
 
         private MeshRenderer? meshRenderer;
 
         private GraphicsBuffer? velocityBuffer = null;
         private GraphicsBuffer? predictedPositionBuffer = null;
 
-        public void SetPinchPoint(Vector3 pinchPoint)
+        public Transform testTransform = default!;
+
+        public bool TrySearchNearestVertex(Vector3 queryPoint, out NearestVertexSearchResult result)
         {
-            var pinchId = GetNearestPointIndices(pinchPoint);
-            solveOnFineGridDispatcher.SetPinchPoint(pinchId);
+            var localQueryPoint = transform.InverseTransformPoint(queryPoint);
+            var _result = searchNearestVertexDispatcher.SearchNearestVertex(localQueryPoint);
+
+            result = _result ?? default;
+
+            return _result != null;
+        }
+
+        public bool TrySetPinchPoint(Vector3 pinchPoint)
+        {
+            if (!TrySearchNearestVertex(pinchPoint, out var result))
+            {
+                return false;
+            }
+
+            solveOnFineGridDispatcher.SetPinchPoint(result.VertexId);
+            return true;
         }
 
         public void UpdatePinchData(Vector3 pinchPoint, Vector3 pinchRight, Vector3 pinchForward)
@@ -43,22 +61,6 @@ namespace TurningPage
         public void Release()
         {
             solveOnFineGridDispatcher.Release();
-        }
-
-        private Vector2Int GetNearestPointIndices(Vector3 worldPoint)
-        {
-            var localPoint = transform.InverseTransformPoint(worldPoint);
-
-            var u = localPoint.x / meshSize.x;
-            var v = localPoint.z / meshSize.y;
-
-            u = Mathf.Clamp01(u);
-            v = Mathf.Clamp01(v);
-
-            var indexX = Mathf.RoundToInt(u * (gridCount.x - 1));
-            var indexY = Mathf.RoundToInt(v * (gridCount.y - 1));
-
-            return new (indexX, indexY);
         }
 
         private void Start()
@@ -93,6 +95,7 @@ namespace TurningPage
             predictPositionsDispatcher.Register(vertexBuffer, velocityBuffer, predictedPositionBuffer, gridSize, gridCount);
             solveOnFineGridDispatcher.Register(vertexBuffer, predictedPositionBuffer, gridSize, gridCount);
             updateVerticesDispatcher.Register(vertexBuffer, velocityBuffer, predictedPositionBuffer, gridSize, gridCount);
+            searchNearestVertexDispatcher.Register(vertexBuffer, gridCount);
 
             initializeVerticesDispatcher.Dispatch(true);
         }
@@ -118,6 +121,7 @@ namespace TurningPage
         {
             velocityBuffer?.Dispose();
             predictedPositionBuffer?.Dispose();
+            searchNearestVertexDispatcher?.Dispose();
         }
 
         static Mesh GenerateGridMesh(Vector2 meshSize, Vector2Int gridCount)
@@ -209,6 +213,7 @@ namespace TurningPage
             const string PREDICTER_SHADER_FILENAME = COMPUTE_SHADER_DIR + "PredictPositions.compute";
             const string SOLVER_SHADER_FILENAME = COMPUTE_SHADER_DIR + "SolveOnFineGrid.compute";
             const string UPDATER_SHADER_FILENAME = COMPUTE_SHADER_DIR + "UpdateVertices.compute";
+            const string VERTEX_SEARCHER_SHADER_FILENAME = COMPUTE_SHADER_DIR + "SearchNearestVertex.compute";
 
             bool updated = false;
 
@@ -237,6 +242,13 @@ namespace TurningPage
             {
                 var updaterShader = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(UPDATER_SHADER_FILENAME);
                 updateVerticesDispatcher.ComputeShader = updaterShader;
+
+                updated = updated || updaterShader != null;
+            }
+            if (searchNearestVertexDispatcher.ComputeShader == null)
+            {
+                var updaterShader = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(VERTEX_SEARCHER_SHADER_FILENAME);
+                searchNearestVertexDispatcher.ComputeShader = updaterShader;
 
                 updated = updated || updaterShader != null;
             }

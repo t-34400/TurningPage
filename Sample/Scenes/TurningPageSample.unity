@@ -493,6 +493,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  m_Version: 3
+  m_UsePipelineSettings: 1
+  m_AdditionalLightsShadowResolutionTier: 2
+  m_LightLayerMask: 1
+  m_RenderingLayers: 1
+  m_CustomShadowLayers: 0
+  m_ShadowLayerMask: 1
+  m_ShadowRenderingLayers: 1
+  m_LightCookieSize: {x: 1, y: 1}
+  m_LightCookieOffset: {x: 0, y: 0}
+  m_SoftShadowQuality: 0
 --- !u!1 &2140054310
 GameObject:
   m_ObjectHideFlags: 0
@@ -551,7 +562,10 @@ MonoBehaviour:
     pinchRotationDampingFactor: 0.8
   updateVerticesDispatcher:
     computeShader: {fileID: 7200000, guid: 3df137578fd1d31499805ad89c133012, type: 3}
-  dummyPinchTransform: {fileID: 299909878}
+  searchNearestVertexDispatcher:
+    computeShader: {fileID: 7200000, guid: 239d57cfbef1f094caabd898523d0e44, type: 3}
+    checkedVerticesPerThread: 4
+  testTransform: {fileID: 299909878}
 --- !u!4 &2140054312
 Transform:
   m_ObjectHideFlags: 0
