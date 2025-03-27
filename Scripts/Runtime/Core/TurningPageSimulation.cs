@@ -6,7 +6,7 @@ using UnityEngine.Rendering;
 
 namespace TurningPage
 {
-    class TurningPageController : MonoBehaviour
+    class TurningPageSimulation : MonoBehaviour
     {
         [SerializeField] private List<Material> renderMaterials = default!;
         [SerializeField] private int solveIter = 10;
