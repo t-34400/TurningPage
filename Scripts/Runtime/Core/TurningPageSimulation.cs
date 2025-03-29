@@ -6,7 +6,7 @@ using UnityEngine.Rendering;
 
 namespace TurningPage
 {
-    class TurningPageSimulation : MonoBehaviour
+    public class TurningPageSimulation : MonoBehaviour
     {
         [SerializeField] private List<Material> renderMaterials = default!;
         [SerializeField] private int solveIter = 10;
@@ -38,6 +38,7 @@ namespace TurningPage
             return _result != null;
         }
 
+        public void SetPinchPoint(Vector2Int vertexId) => solveOnFineGridDispatcher.SetPinchPoint(vertexId);
         public bool TrySetPinchPoint(Vector3 pinchPoint)
         {
             if (!TrySearchNearestVertex(pinchPoint, out var result))
@@ -45,7 +46,7 @@ namespace TurningPage
                 return false;
             }
 
-            solveOnFineGridDispatcher.SetPinchPoint(result.VertexId);
+            SetPinchPoint(result.VertexId);
             return true;
         }
 

@@ -25,8 +25,14 @@ namespace TurningPage
         [SerializeField] private float pinchRotationStiffness = 100f;
         [SerializeField] private float pinchRotationDampingFactor = 0.8f;
 
-        private Vector2Int gridCount;
         private int kernel;
+        private GraphicsBuffer? vertexBuffer;
+
+        private Vector2Int gridCount;
+        private Vector2 gridSize;
+
+        private Vector2Int pinchedVertexId;
+        private Vector3 latestPinchPoint;
 
         public ComputeShader? ComputeShader
         {
@@ -43,6 +49,8 @@ namespace TurningPage
         public void Register(GraphicsBuffer vertexBuffer, GraphicsBuffer predictedPositionBuffer, Vector2 gridSize, Vector2Int gridCount)
         {
             this.gridCount = gridCount;
+            this.gridSize = gridSize;
+            this.vertexBuffer = vertexBuffer;
 
             kernel = computeShader.FindKernel("CSMain");
 
@@ -54,17 +62,29 @@ namespace TurningPage
             computeShader.SetBool("_IsPinched", false);
         }
 
-        public void SetPinchPoint(Vector2Int pinchId)
+        public void SetPinchPoint(Vector2Int pinchedVertexId)
         {
+            if (!TryGetVertexData(pinchedVertexId, out var vertex))
+            {
+                return;
+            }
+
             computeShader.SetBool("_IsPinched", true);
-            computeShader.SetInts("_PinchId", pinchId.x, pinchId.y - 1);
+            computeShader.SetInts("_PinchId", pinchedVertexId.x, pinchedVertexId.y - 1);
+
+            this.pinchedVertexId = pinchedVertexId;
+            latestPinchPoint = vertex.position;
         }
 
         public void UpdatePinchData(Vector3 pinchPoint, Vector3 pinchRight, Vector3 pinchForward)
         {
+            pinchPoint = ConstrainPinchPointFromSeam(pinchPoint);
+
             computeShader.SetFloats("_PinchPoint", pinchPoint.x, pinchPoint.y, pinchPoint.z);
             computeShader.SetFloats("_PinchRight", pinchRight.x, pinchRight.y, pinchRight.z);
             computeShader.SetFloats("_PinchForward", pinchForward.x, pinchForward.y, pinchForward.z);
+
+            latestPinchPoint = pinchPoint;
         }
 
         public void Release()
@@ -108,6 +128,73 @@ namespace TurningPage
             computeShader.SetFloat("_PinchRotationDampingEffect", pinchRotationDampingEffect);
 
             computeShader.Dispatch(kernel, threadGroupX, threadGroupY, 1);
+        }
+
+        private Vector3 ConstrainPinchPointFromSeam(Vector3 pinchPoint)
+        {
+            const int MAX_ITER = 5;
+            const float OFFSET = 0.01f;
+
+            var seamStart = Vector3.zero;
+            var seamEnd = Vector3.right * gridSize.x;
+
+            var maxDistanceFromStart = 
+                new Vector2(
+                    gridSize.x * pinchedVertexId.x, 
+                    gridSize.y * pinchedVertexId.y
+                ).magnitude;
+            var maxDistanceFromEnd = 
+                new Vector2(
+                    gridSize.x * (gridCount.x - pinchedVertexId.x - 1), 
+                    gridSize.y * (gridCount.y - pinchedVertexId.y - 1)
+                ).magnitude;
+
+            var distanceFromStart = (pinchPoint - seamStart).magnitude;
+            var distanceFromEnd = (pinchPoint - seamEnd).magnitude;
+
+            for (var i = 0; i < MAX_ITER; ++i)
+            {
+                if (distanceFromStart > maxDistanceFromStart + OFFSET)
+                {
+                    pinchPoint += (seamStart - pinchPoint).normalized * (distanceFromStart - maxDistanceFromStart);
+                }
+                else if (distanceFromEnd < maxDistanceFromEnd + OFFSET)
+                {
+                    return pinchPoint;
+                }
+
+                distanceFromEnd = (pinchPoint - seamEnd).magnitude;
+
+                if (distanceFromEnd > maxDistanceFromEnd + OFFSET)
+                {
+                    pinchPoint += (seamEnd - pinchPoint).normalized * (distanceFromEnd - maxDistanceFromEnd);
+                }
+                else if (distanceFromStart < maxDistanceFromStart + OFFSET)
+                {
+                    return pinchPoint;
+                }
+
+                distanceFromStart = (pinchPoint - seamStart).magnitude;
+            }
+
+            return latestPinchPoint;
+        }
+
+        private bool TryGetVertexData(Vector2Int vertexId, out Vertex vertex)
+        {
+            if (vertexBuffer == null)
+            {
+                vertex = default;
+                return false;
+            }
+
+            var vertexIndex = vertexId.y * gridCount.x + vertexId.x;
+
+            var vertexArray = new Vertex[1];
+            vertexBuffer.GetData(vertexArray, 0, vertexIndex, 1);
+            
+            vertex = vertexArray[0];
+            return true;
         }
     }
 }
