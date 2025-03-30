@@ -24,6 +24,12 @@ namespace TurningPage
         [SerializeField] private UpdateVerticesDispatcher updateVerticesDispatcher = default!;
         [SerializeField] private SearchNearestVertexDispatcher searchNearestVertexDispatcher = default!;
 
+        private MeshRenderer? meshRenderer;
+
+        private GraphicsBuffer? vertexBuffer = null;
+        private GraphicsBuffer? velocityBuffer = null;
+        private GraphicsBuffer? predictedPositionBuffer = null;
+
         public Material FrontMaterial
         {
             get => frontMaterial;
@@ -43,12 +49,10 @@ namespace TurningPage
             }
         }
 
-        private MeshRenderer? meshRenderer;
-
-        private GraphicsBuffer? velocityBuffer = null;
-        private GraphicsBuffer? predictedPositionBuffer = null;
-
-        public Transform testTransform = default!;
+        public GraphicsBuffer? VertexBuffer => vertexBuffer;
+        public Vector2 MeshSize => meshSize;
+        public Vector2Int GridCount => gridCount;
+        public Vector2 GridSize => new (meshSize.x / (gridCount.x - 1), meshSize.y / (gridCount.y - 1));
 
         public bool TrySearchNearestVertex(Vector3 queryPoint, out NearestVertexSearchResult result)
         {
@@ -96,14 +100,13 @@ namespace TurningPage
 
             meshRenderer = gameObject.AddComponent<MeshRenderer>();
             meshRenderer.SetMaterials(new () { frontMaterial, backMaterial });
-            
 
             var meshFilter = gameObject.AddComponent<MeshFilter>();
             var mesh = GenerateGridMesh(meshSize, gridCount, cornerUvs);
             meshFilter.mesh = mesh;
 
             mesh.vertexBufferTarget |= GraphicsBuffer.Target.Structured;
-            var vertexBuffer = mesh.GetVertexBuffer(0);
+            vertexBuffer = mesh.GetVertexBuffer(0);
 
             int vertexCount = mesh.vertexCount;
             int float3Size = sizeof(float) * 3;
@@ -146,6 +149,10 @@ namespace TurningPage
             velocityBuffer?.Dispose();
             predictedPositionBuffer?.Dispose();
             searchNearestVertexDispatcher?.Dispose();
+
+            vertexBuffer = null;
+            velocityBuffer = null;
+            predictedPositionBuffer = null;
         }
 
         static Mesh GenerateGridMesh(Vector2 meshSize, Vector2Int gridCount, CornerUvs cornerUvs)
@@ -235,7 +242,7 @@ namespace TurningPage
 #if UNITY_EDITOR
         private void OnValidate()
         {
-            const string COMPUTE_SHADER_DIR = "Assets/TurningPage/ComputeShaders/";
+            const string COMPUTE_SHADER_DIR = "Assets/TurningPage/ComputeShaders/Core/";
             const string INITIALIZER_SHADER_FILENAME = COMPUTE_SHADER_DIR + "InitialilzeVertices.compute";
             const string PREDICTER_SHADER_FILENAME = COMPUTE_SHADER_DIR + "PredictPositions.compute";
             const string SOLVER_SHADER_FILENAME = COMPUTE_SHADER_DIR + "SolveOnFineGrid.compute";
