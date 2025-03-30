@@ -1,13 +1,9 @@
 #pragma kernel InitialAggregationKernel
 #pragma kernel FinalAggregationKernel
 
-#define FLT_MAX 3.402823466e+38
+#include_with_pragmas "vertex.hlsl"
 
-struct Vertex {
-    float3 position;
-    float2 uv;
-    float3 normals;
-};
+#define FLT_MAX 3.402823466e+38
 
 RWStructuredBuffer<Vertex> vertexBuffer;
 RWBuffer<float> resultSqrDistanceBuffer;

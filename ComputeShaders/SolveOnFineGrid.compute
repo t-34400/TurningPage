@@ -1,5 +1,7 @@
 #pragma kernel CSMain
 
+#include_with_pragmas "vertex.hlsl"
+
 #define NUM_THREADS 8
 
 #define LOCAL_DATA_LENGTH (NUM_THREADS + 4)
@@ -7,12 +9,6 @@
 
 #define ACCUMULATED_VERTEX_PER_THREAD 8
 #define ACCUMULATION_DATA_COUNT (NUM_THREADS * NUM_THREADS * ACCUMULATED_VERTEX_PER_THREAD)
-
-struct Vertex {
-    float3 position;
-    float2 uv;
-    float3 normals;
-};
 
 RWStructuredBuffer<Vertex> vertexBuffer;
 RWStructuredBuffer<float3> predictedPositionBuffer;

@@ -1,10 +1,6 @@
 #pragma kernel CSMain
 
-struct Vertex {
-    float3 position;
-    float2 uv;
-    float3 normals;
-};
+#include_with_pragmas "vertex.hlsl"
 
 RWStructuredBuffer<Vertex> vertexBuffer;
 RWStructuredBuffer<float3> velocityBuffer;

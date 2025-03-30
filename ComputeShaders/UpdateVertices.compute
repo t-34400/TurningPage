@@ -1,10 +1,6 @@
 #pragma kernel CSMain
 
-struct Vertex {
-    float3 position;
-    float2 uv;
-    float3 normal;
-};
+#include_with_pragmas "vertex.hlsl"
 
 RWStructuredBuffer<Vertex> vertexBuffer;
 RWStructuredBuffer<float3> velocityBuffer;
@@ -15,12 +11,12 @@ uint2 _GridCount;
 
 float _DeltaTime;
 
-float3 ComputeVertexNormal(uint3 id, float3 vertexPosition)
+float3 ComputeVertexNormal(uint2 targetId, float3 vertexPosition)
 {
-    bool isLeftValid = id.x > 0;
-    bool isRightValid = id.y < _GridCount.x - 1;
-    // The backward vertex is always valid.
-    bool isForwardValid = id.y + 1 < _GridCount.y - 1;
+    bool isLeftValid = targetId.x > 0;
+    bool isRightValid = targetId.x < _GridCount.x - 1;
+    bool isBackwardValid = targetId.y > 0;
+    bool isForwardValid = targetId.y < _GridCount.y - 1;
 
     float3 leftVertexDirection = float3(0, 0, 0);
     float3 rightVertexDirection = float3(0, 0, 0);
@@ -29,24 +25,25 @@ float3 ComputeVertexNormal(uint3 id, float3 vertexPosition)
 
     if (isLeftValid)
     {
-        uint leftIndex = (id.y + 1) * _GridCount.x + id.x - 1;
+        uint leftIndex = targetId.y * _GridCount.x + targetId.x - 1;
         float3 leftVertexPosition = vertexBuffer[leftIndex].position;
         leftVertexDirection = leftVertexPosition - vertexPosition;
     }
     if (isRightValid)
     {
-        uint rightIndex = (id.y + 1) * _GridCount.x + id.x + 1;
+        uint rightIndex = targetId.y * _GridCount.x + targetId.x + 1;
         float3 rightVertexPosition = vertexBuffer[rightIndex].position;
         rightVertexDirection = rightVertexPosition - vertexPosition;
     }
-
-    uint backwardIndex = id.y * _GridCount.x + id.x;
-    float3 backwardVertexPosition = vertexBuffer[backwardIndex].position;
-    backwardVertexDirection = backwardVertexPosition - vertexPosition;
-
+    if (isBackwardValid)
+    {
+        uint backwardIndex = (targetId.y - 1) * _GridCount.x + targetId.x;
+        float3 backwardVertexPosition = vertexBuffer[backwardIndex].position;
+        backwardVertexDirection = backwardVertexPosition - vertexPosition;    
+    }
     if (isForwardValid)
     {
-        uint forwardIndex = (id.y + 2) * _GridCount.x + id.x;
+        uint forwardIndex = (targetId.y + 1) * _GridCount.x + targetId.x;
         float3 forwardVertexPosition = vertexBuffer[forwardIndex].position;
         forwardVertexDirection = forwardVertexPosition - vertexPosition;
     }
@@ -54,12 +51,12 @@ float3 ComputeVertexNormal(uint3 id, float3 vertexPosition)
     uint triangleCount = 0;
     float3 sumTriangleNormals = float3(0, 0, 0);
 
-    if (isLeftValid)
+    if (isLeftValid & isBackwardValid)
     {
-        sumTriangleNormals += normalize(cross(leftVertexDirection, backwardVertexDirection));
+        sumTriangleNormals += normalize(cross(backwardVertexDirection, leftVertexDirection));
         triangleCount += 1;
     }
-    if (isRightValid)
+    if (isRightValid & isBackwardValid)
     {
         sumTriangleNormals += normalize(cross(rightVertexDirection, backwardVertexDirection));
         triangleCount += 1;
@@ -71,7 +68,7 @@ float3 ComputeVertexNormal(uint3 id, float3 vertexPosition)
     }
     if (isRightValid & isForwardValid)
     {
-        sumTriangleNormals += normalize(cross(rightVertexDirection, forwardVertexDirection));
+        sumTriangleNormals += normalize(cross(forwardVertexDirection, rightVertexDirection));
         triangleCount += 1;
     }
 
@@ -91,5 +88,12 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
     float3 vertexPosition = predictedPositionBuffer[index];
     vertexBuffer[index].position = vertexPosition;
-    vertexBuffer[index].normal = ComputeVertexNormal(id, vertexPosition);
+    vertexBuffer[index].normal = ComputeVertexNormal(uint2(id.x, id.y + 1), vertexPosition);
+
+    if (id.y == 0)
+    {
+        index = id.x;
+        vertexPosition = vertexBuffer[index].position;
+        vertexBuffer[index].normal = ComputeVertexNormal(uint2(id.x, id.y), vertexPosition);
+    }
 }
