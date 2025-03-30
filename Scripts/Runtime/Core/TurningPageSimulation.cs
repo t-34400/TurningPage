@@ -1,6 +1,6 @@
 #nullable enable
 
-using System.Collections.Generic;
+using System;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -8,18 +8,40 @@ namespace TurningPage
 {
     public class TurningPageSimulation : MonoBehaviour
     {
-        [SerializeField] private List<Material> renderMaterials = default!;
+        [SerializeField] private Material frontMaterial = default!;
+        [SerializeField] private Material backMaterial = default!;
+        [Header("Simulation Settings")]
         [SerializeField] private int solveIter = 10;
         [SerializeField] private float timestep = 0.05f;
         [Header("Grid")]
         [SerializeField] private Vector2 meshSize = Vector2.one;
         [SerializeField] private Vector2Int gridCount = new Vector2Int(16, 17);
+        [SerializeField] private CornerUvs cornerUvs = new();
         [Header("Dispatchers")]
         [SerializeField] private InitializeVerticesDispatcher initializeVerticesDispatcher = default!;
         [SerializeField] private PredictPositionsDispatcher predictPositionsDispatcher = default!;
         [SerializeField] private SolveOnFineGridDispatcher solveOnFineGridDispatcher = default!;
         [SerializeField] private UpdateVerticesDispatcher updateVerticesDispatcher = default!;
         [SerializeField] private SearchNearestVertexDispatcher searchNearestVertexDispatcher = default!;
+
+        public Material FrontMaterial
+        {
+            get => frontMaterial;
+            set
+            {
+                frontMaterial = value;
+                meshRenderer?.SetMaterials(new () { frontMaterial, backMaterial });
+            }
+        }
+        public Material BackMaterial
+        {
+            get => backMaterial;
+            set
+            {
+                backMaterial = value;
+                meshRenderer?.SetMaterials(new () { frontMaterial, backMaterial });
+            }
+        }
 
         private MeshRenderer? meshRenderer;
 
@@ -73,10 +95,11 @@ namespace TurningPage
             }
 
             meshRenderer = gameObject.AddComponent<MeshRenderer>();
-            meshRenderer.SetMaterials(renderMaterials);
+            meshRenderer.SetMaterials(new () { frontMaterial, backMaterial });
+            
 
             var meshFilter = gameObject.AddComponent<MeshFilter>();
-            var mesh = GenerateGridMesh(meshSize, gridCount);
+            var mesh = GenerateGridMesh(meshSize, gridCount, cornerUvs);
             meshFilter.mesh = mesh;
 
             mesh.vertexBufferTarget |= GraphicsBuffer.Target.Structured;
@@ -125,7 +148,7 @@ namespace TurningPage
             searchNearestVertexDispatcher?.Dispose();
         }
 
-        static Mesh GenerateGridMesh(Vector2 meshSize, Vector2Int gridCount)
+        static Mesh GenerateGridMesh(Vector2 meshSize, Vector2Int gridCount, CornerUvs cornerUvs)
         {
             var mesh = new Mesh();
             mesh.indexFormat = IndexFormat.UInt32;
@@ -152,7 +175,11 @@ namespace TurningPage
                     var posX = x * dx;
                     var posZ = z * dz;
                     vertices[index] = new Vector3(posX, 0, posZ);
-                    uvs[index] = new Vector2(x / (float)(gridCount.x - 1), z / (float)(gridCount.y - 1));
+                    uvs[index] = cornerUvs.GetUvCoordinates(
+                        new Vector2(
+                            (float) x / (gridCount.x - 1), 
+                            (float) z / (gridCount.y - 1)
+                        ));
 
                     normals[index] = Vector3.up;
                 }
@@ -176,19 +203,18 @@ namespace TurningPage
                     trianglesFront[ti++] = i + gridCount.x + 1;
                 }
             }
-
             for (var z = 0; z < gridCount.y - 1; z++)
             {
-                for (var x = 0; x < gridCount.x - 1; x++)
+                for (var x = gridCount.x - 1; x > 0; x--)
                 {
                     var i = x + z * gridCount.x;
 
                     trianglesBack[bi++] = i;
-                    trianglesBack[bi++] = i + 1;
+                    trianglesBack[bi++] = i - 1;
                     trianglesBack[bi++] = i + gridCount.x;
 
-                    trianglesBack[bi++] = i + 1;
-                    trianglesBack[bi++] = i + gridCount.x + 1;
+                    trianglesBack[bi++] = i - 1;
+                    trianglesBack[bi++] = i + gridCount.x - 1;
                     trianglesBack[bi++] = i + gridCount.x;
                 }
             }
@@ -260,5 +286,21 @@ namespace TurningPage
             }
         }
 #endif
+
+        [Serializable]
+        class CornerUvs
+        {
+            public Vector2 leftBackwardCornerUv = new Vector2(1, 1);
+            public Vector2 rightBackwardCornerUv = new Vector2(1, 1);
+            public Vector2 leftForwardCornerUv = new Vector2(0, 1);
+            public Vector2 rightForwardCornerUv = new Vector2(0, 0);
+
+            public Vector2 GetUvCoordinates(Vector2 normalizedPoint)
+            {
+                var top = Vector2.Lerp(leftBackwardCornerUv, rightBackwardCornerUv, normalizedPoint.x);
+                var bottom = Vector2.Lerp(leftForwardCornerUv, rightForwardCornerUv, normalizedPoint.x);
+                return Vector2.Lerp(bottom, top, normalizedPoint.y);
+            }
+        }
     }
 }
