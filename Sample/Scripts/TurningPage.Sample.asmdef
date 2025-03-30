@@ -1,0 +1,16 @@
+{
+    "name": "TurningPage.Sample",
+    "rootNamespace": "TurningPage.Sample",
+    "references": [
+        "GUID:dd661b15dd95c2e4f9254d7ff096ac90"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

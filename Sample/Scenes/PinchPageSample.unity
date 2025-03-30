@@ -128,6 +128,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 299909878}
+  - component: {fileID: 299909879}
   m_Layer: 0
   m_Name: PinchPoint
   m_TagString: Untagged
@@ -151,6 +152,20 @@ Transform:
   - {fileID: 1519485245}
   m_Father: {fileID: 1275393552}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &299909879
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 299909877}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 64a5beba72e90e24da8000f8cc7b9197, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  turningPageSimulation: {fileID: 2140054311}
+  maxPinchDistance: 0.1
 --- !u!1 &1166643684
 GameObject:
   m_ObjectHideFlags: 0
@@ -353,7 +368,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 10303, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 2100000, guid: 6c1c3ecad435795489219d7d65a3c0a3, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -514,6 +529,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2140054312}
   - component: {fileID: 2140054311}
+  - component: {fileID: 2140054313}
   m_Layer: 0
   m_Name: TurningPaper
   m_TagString: Untagged
@@ -533,13 +549,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ab0b3c1cd0c83d64ba2d03d4862f74a7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  renderMaterials:
-  - {fileID: 2100000, guid: 980f1218d2fa1b04c8921468851a2c2b, type: 2}
-  - {fileID: 2100000, guid: 51f7633955c099d45b179c235ea661cc, type: 2}
+  frontMaterial: {fileID: 2100000, guid: 980f1218d2fa1b04c8921468851a2c2b, type: 2}
+  backMaterial: {fileID: 2100000, guid: 51f7633955c099d45b179c235ea661cc, type: 2}
   solveIter: 10
   timestep: 0.05
-  meshSize: {x: 1, y: 1}
+  meshSize: {x: 1, y: 0.8}
   gridCount: {x: 16, y: 17}
+  cornerUvs:
+    leftBackwardCornerUv: {x: 1, y: 1}
+    rightBackwardCornerUv: {x: 1, y: 0}
+    leftForwardCornerUv: {x: 0, y: 1}
+    rightForwardCornerUv: {x: 0, y: 0}
   initializeVerticesDispatcher:
     computeShader: {fileID: 7200000, guid: 685f36dc647a09544b07650443bea2a9, type: 3}
   predictPositionsDispatcher:
@@ -581,6 +601,29 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2140054313
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2140054310}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 81e01ceca86e0d24daf887d6660141fa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  turningPageSimulation: {fileID: 2140054311}
+  floatMaterialSettings:
+  - propertyName: _InvertNormals
+    frontMaterialPropertyValue: 1
+    backMaterialPropertyValue: -1
+  - propertyName: _InvertUs
+    frontMaterialPropertyValue: 1
+    backMaterialPropertyValue: -1
+  - propertyName: _InvertVs
+    frontMaterialPropertyValue: 1
+    backMaterialPropertyValue: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
