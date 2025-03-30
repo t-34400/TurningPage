@@ -1,0 +1,166 @@
+#pragma kernel InitialAggregationKernel
+#pragma kernel FinalAggregationKernel
+
+#include_with_pragmas "../Core/vertex.hlsl"
+
+#define AXIS_VERTICES_PER_THREAD 2
+#define THREAD_BLOCK_LENGTH 8
+#define AXIS_VERTICES_PER_GROUP (AXIS_VERTICES_PER_THREAD * THREAD_BLOCK_LENGTH)
+#define LOCAL_DATA_LENGTH (AXIS_VERTICES_PER_GROUP + 1)
+
+RWStructuredBuffer<Vertex> vertexBuffer;
+RWStructuredBuffer<float3> sumBarycenterBuffer;
+
+uint2 _GridCount;
+uint2 _GroupCount;
+uint _FinalAggregationInterval;
+
+groupshared float3 localPositionData[LOCAL_DATA_LENGTH * LOCAL_DATA_LENGTH];
+groupshared float3 localSumBarycenterBuffer[THREAD_BLOCK_LENGTH * THREAD_BLOCK_LENGTH];
+
+void LoadVertexPositionData(uint3 id, uint3 threadId, uint3 groupId)
+{
+    for (uint i = 0; i < AXIS_VERTICES_PER_THREAD * AXIS_VERTICES_PER_THREAD; ++i)
+    {
+        uint2 localId = uint2(
+            threadId.x + threadId.y % AXIS_VERTICES_PER_THREAD,
+            threadId.y / AXIS_VERTICES_PER_THREAD + i * (THREAD_BLOCK_LENGTH / AXIS_VERTICES_PER_THREAD)
+        );
+        uint2 globalId = groupId.xy * AXIS_VERTICES_PER_GROUP + localId;
+
+        uint localIndex = localId.y * LOCAL_DATA_LENGTH + localId.x;
+        uint globalIndex = globalId.y * _GridCount.x + globalId.x;
+        
+        if (globalId.x < _GridCount.x - 1
+            && globalId.y < _GridCount.y - 1)
+        {
+            localPositionData[localIndex] = vertexBuffer[globalIndex].position;
+        }
+
+        if (localId.x == AXIS_VERTICES_PER_GROUP - 1
+            && globalId.x + 1 < _GridCount.x - 1
+            && globalId.y < _GridCount.y - 1)
+        {
+            localPositionData[localIndex + 1] = vertexBuffer[globalIndex + 1].position;
+        }
+
+        if (localId.y == AXIS_VERTICES_PER_GROUP - 1
+            && globalId.x < _GridCount.x - 1
+            && globalId.y + 1 < _GridCount.y - 1)
+        {
+            localPositionData[localIndex + LOCAL_DATA_LENGTH] = vertexBuffer[globalIndex + _GridCount.x].position;
+        }
+
+        if (localId.x == AXIS_VERTICES_PER_GROUP - 1
+            && localId.y == AXIS_VERTICES_PER_GROUP - 1
+            && globalId.x + 1 < _GridCount.x - 1
+            && globalId.y + 1 < _GridCount.y - 1)
+        {
+            localPositionData[localIndex + LOCAL_DATA_LENGTH + 1] = vertexBuffer[globalIndex + _GridCount.x + 1].position;
+        }
+    }
+}
+
+float3 ComputeBarycenter(float3 v0, float3 v1, float3 v2)
+{
+    return (v0 + v1 + v2) / 3.0;
+}
+
+[numthreads(8,8,1)]
+void InitialAggregationKernel (uint3 id : SV_DispatchThreadID, uint3 threadId : SV_GroupThreadID, uint3 groupId : SV_GroupID)
+{
+    LoadVertexPositionData(id, threadId, groupId);
+
+    GroupMemoryBarrierWithGroupSync();
+
+    float3 sumBarycenters = float3(0, 0, 0);
+
+    for (uint i = 0; i < AXIS_VERTICES_PER_THREAD; ++i)
+    {
+        for (uint j = 0; j < AXIS_VERTICES_PER_THREAD; ++j)
+        {
+            uint2 localId = threadId.xy * AXIS_VERTICES_PER_THREAD + uint2(i, j);
+            uint2 globalId = groupId.xy * AXIS_VERTICES_PER_GROUP + localId;
+    
+            if (globalId.x + 1 < _GridCount.x - 1
+                && globalId.y + 1 < _GridCount.y - 1)
+            {
+                uint localIndex = localId.y * LOCAL_DATA_LENGTH + localId.x;
+
+                float3 p00 = localPositionData[localIndex];
+                float3 p10 = localPositionData[localIndex + 1];
+                float3 p01 = localPositionData[localIndex + LOCAL_DATA_LENGTH];
+                float3 p11 = localPositionData[localIndex + LOCAL_DATA_LENGTH + 1];
+
+                sumBarycenters += ComputeBarycenter(p00, p10, p01);
+                sumBarycenters += ComputeBarycenter(p10, p01, p11);
+            }
+        }
+    }
+
+    uint localBarycenterIndex = threadId.y * THREAD_BLOCK_LENGTH + threadId.x;
+    localSumBarycenterBuffer[localBarycenterIndex] = sumBarycenters;
+
+    uint interval = 1;
+
+    while (interval < THREAD_BLOCK_LENGTH)
+    {
+        GroupMemoryBarrierWithGroupSync();
+        
+        sumBarycenters = float3(0, 0, 0);
+
+        for (uint i = 0; i < AXIS_VERTICES_PER_THREAD; ++i)
+        {
+            for (uint j = 0; j < AXIS_VERTICES_PER_THREAD; ++j)
+            {
+                sumBarycenters += localSumBarycenterBuffer[localBarycenterIndex + j * interval * THREAD_BLOCK_LENGTH + i * interval];
+            }
+        }        
+
+        localSumBarycenterBuffer[localBarycenterIndex] = sumBarycenters;
+
+        interval *= AXIS_VERTICES_PER_THREAD;
+    }
+
+    if (threadId.x == 0 && threadId.y == 0)
+    {
+        sumBarycenterBuffer[groupId.y * _GroupCount.x + groupId.x] = sumBarycenters;
+    }
+}
+
+[numthreads(8,8,1)]
+void FinalAggregationKernel (uint3 id : SV_DispatchThreadID, uint3 threadId : SV_GroupThreadID, uint3 groupId : SV_GroupID)
+{
+    uint localBarycenterIndex = threadId.y * THREAD_BLOCK_LENGTH + threadId.x;
+    uint sumBaryCenterIndex = groupId.y * _FinalAggregationInterval * _GroupCount.x + groupId.x * _FinalAggregationInterval;
+
+    bool isValid = sumBaryCenterIndex < _GroupCount.x * _GroupCount.y;
+    localSumBarycenterBuffer[localBarycenterIndex] = isValid ? sumBarycenterBuffer[sumBaryCenterIndex] : float3(0, 0, 0);
+
+    uint interval = 1;
+    float3 sumBarycenters = float3(0, 0, 0);
+
+    while (interval < THREAD_BLOCK_LENGTH)
+    {
+        GroupMemoryBarrierWithGroupSync();
+        
+        sumBarycenters = float3(0, 0, 0);
+
+        for (uint i = 0; i < AXIS_VERTICES_PER_THREAD; ++i)
+        {
+            for (uint j = 0; j < AXIS_VERTICES_PER_THREAD; ++j)
+            {
+                sumBarycenters += localSumBarycenterBuffer[localBarycenterIndex + j * interval * _FinalAggregationInterval * THREAD_BLOCK_LENGTH + i * interval * _FinalAggregationInterval];
+            }
+        }        
+
+        localSumBarycenterBuffer[localBarycenterIndex] = sumBarycenters;
+
+        interval *= AXIS_VERTICES_PER_THREAD;
+    }
+
+    if (threadId.x == 0 && threadId.y == 0)
+    {
+        sumBarycenterBuffer[groupId.y * _GroupCount.x + groupId.x] = sumBarycenters;
+    }
+}

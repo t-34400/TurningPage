@@ -98,7 +98,7 @@ void FinalAggregationKernel (uint3 id : SV_DispatchThreadID, uint3 threadId : SV
 
         if (resultIndex >= _ResultBufferCount)
         {
-            return;
+            continue;
         }
 
         float sqrDistance = resultSqrDistanceBuffer[resultIndex];
