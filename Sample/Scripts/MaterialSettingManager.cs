@@ -13,6 +13,14 @@ namespace TurningPage.Sample
 
         private void Start()
         {
+            SetMaterialProperties();
+        }
+
+# if UNITY_EDITOR
+        [ContextMenu("Set Material Properties")]
+# endif
+        private void SetMaterialProperties()
+        {
             var frontMaterial = turningPageSimulation.FrontMaterial;
             var backMaterial = turningPageSimulation.BackMaterial;
 
@@ -22,6 +30,7 @@ namespace TurningPage.Sample
                 backMaterial.SetFloat(settings.propertyName, settings.backMaterialPropertyValue);
             }
         }
+
 
         [Serializable]
         class FloatMaterialSettings
