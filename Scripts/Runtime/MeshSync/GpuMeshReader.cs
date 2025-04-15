@@ -48,7 +48,6 @@ namespace TurningPage.MeshSync
             if (!request.hasError)
             {
                 var vertexData = request.GetData<Vertex>();
-                Debug.Log($"Request: done={request.done}, hasError={request.hasError}, Size: {vertexData.Length}");
 
                 Mesh.MarkDynamic();
                 Mesh.SetVertexBufferData(vertexData, 0, 0, vertexData.Length);
