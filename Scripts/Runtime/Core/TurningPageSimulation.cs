@@ -155,6 +155,11 @@ namespace TurningPage
             predictedPositionBuffer = null;
         }
 
+        public Mesh GenerateGridMesh()
+        {
+            return GenerateGridMesh(MeshSize, GridCount, cornerUvs);
+        }
+
         static Mesh GenerateGridMesh(Vector2 meshSize, Vector2Int gridCount, CornerUvs cornerUvs)
         {
             var mesh = new Mesh();
