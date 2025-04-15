@@ -28,7 +28,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     velocity -= _Resistance * _DeltaTime * velocity;
     
     position += velocity * _DeltaTime;
-    position.y = max(position.y, 0);
+    position.y = max(position.y, 1e-5 * id.y); // Avoid z-fighting
 
     velocityBuffer[index] = velocity;
     predictedPositionBuffer[index] = position;
