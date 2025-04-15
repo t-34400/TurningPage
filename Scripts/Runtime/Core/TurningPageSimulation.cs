@@ -298,7 +298,7 @@ namespace TurningPage
         class CornerUvs
         {
             public Vector2 leftBackwardCornerUv = new Vector2(1, 1);
-            public Vector2 rightBackwardCornerUv = new Vector2(1, 1);
+            public Vector2 rightBackwardCornerUv = new Vector2(1, 0);
             public Vector2 leftForwardCornerUv = new Vector2(0, 1);
             public Vector2 rightForwardCornerUv = new Vector2(0, 0);
 
