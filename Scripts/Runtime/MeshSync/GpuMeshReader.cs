@@ -1,5 +1,7 @@
 #nullable enable
 
+using System.Threading.Tasks;
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.Rendering;
@@ -30,6 +32,24 @@ namespace TurningPage.MeshSync
             }
         }
 
+        public async Task<bool> ForceSyncMesh(Mesh mesh)
+        {
+            var vertexBuffer = turningPageSimulation.VertexBuffer;
+            if (vertexBuffer == null)
+                return false;
+
+            var request = await AsyncGPUReadback.RequestAsync(vertexBuffer);
+
+            if (!request.done || request.hasError)
+                return false;
+
+            var vertexData = request.GetData<Vertex>();
+
+            ApplyVertexData(mesh, vertexData);
+
+            return true;
+        }
+
         private void Update()
         {
             if (_request == null)
@@ -49,10 +69,7 @@ namespace TurningPage.MeshSync
             {
                 var vertexData = request.GetData<Vertex>();
 
-                Mesh.MarkDynamic();
-                Mesh.SetVertexBufferData(vertexData, 0, 0, vertexData.Length);
-                Mesh.RecalculateBounds();
-
+                ApplyVertexData(Mesh, vertexData);
                 meshUpdated?.Invoke(Mesh);
 
                 RequestReadVertexData();
@@ -69,6 +86,13 @@ namespace TurningPage.MeshSync
                 return;
             
             _request = AsyncGPUReadback.Request(vertexBuffer);
+        }
+
+        private static void ApplyVertexData(Mesh mesh, NativeArray<Vertex> vertexData)
+        {
+            mesh.MarkDynamic();
+            mesh.SetVertexBufferData(vertexData, 0, 0, vertexData.Length);
+            mesh.RecalculateBounds();
         }
     }
 }

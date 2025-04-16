@@ -22,5 +22,8 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         id.x * _GridSize.x, 
         0, 
         gridDir * int(id.y) * _GridSize.y);
+    
+    vertexBuffer[index].normal = float3(0, gridDir, 0);
+
     velocityBuffer[index] = float3(0, 0, 0);
 }

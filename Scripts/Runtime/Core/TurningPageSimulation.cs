@@ -268,46 +268,39 @@ namespace TurningPage
 #if UNITY_EDITOR
         private void OnValidate()
         {
-            const string COMPUTE_SHADER_DIR = "Assets/TurningPage/ComputeShaders/Core/";
-            const string INITIALIZER_SHADER_FILENAME = COMPUTE_SHADER_DIR + "InitialilzeVertices.compute";
-            const string PREDICTER_SHADER_FILENAME = COMPUTE_SHADER_DIR + "PredictPositions.compute";
-            const string SOLVER_SHADER_FILENAME = COMPUTE_SHADER_DIR + "SolveOnFineGrid.compute";
-            const string UPDATER_SHADER_FILENAME = COMPUTE_SHADER_DIR + "UpdateVertices.compute";
-            const string VERTEX_SEARCHER_SHADER_FILENAME = COMPUTE_SHADER_DIR + "SearchNearestVertex.compute";
-
             bool updated = false;
 
             if (initializeVerticesDispatcher.ComputeShader == null)
             {
-                var initializerShader = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(INITIALIZER_SHADER_FILENAME);
+                var initializerShader = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(Constants.INITIALIZER_SHADER_FILENAME);
                 initializeVerticesDispatcher.ComputeShader = initializerShader;
 
                 updated = updated || initializerShader != null;
             }
             if (predictPositionsDispatcher.ComputeShader == null)
             {
-                var predictorShader = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(PREDICTER_SHADER_FILENAME);
+                var predictorShader = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(Constants.PREDICTER_SHADER_FILENAME);
                 predictPositionsDispatcher.ComputeShader = predictorShader;
 
                 updated = updated || predictorShader != null;
             }
             if (solveOnFineGridDispatcher.ComputeShader == null)
             {
-                var solverShader = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(SOLVER_SHADER_FILENAME);
+                var solverShader = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(Constants.SOLVER_SHADER_FILENAME);
                 solveOnFineGridDispatcher.ComputeShader = solverShader;
 
                 updated = updated || solverShader != null;
             }
             if (updateVerticesDispatcher.ComputeShader == null)
             {
-                var updaterShader = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(UPDATER_SHADER_FILENAME);
+                var updaterShader = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(Constants.UPDATER_SHADER_FILENAME);
                 updateVerticesDispatcher.ComputeShader = updaterShader;
 
                 updated = updated || updaterShader != null;
             }
             if (searchNearestVertexDispatcher.ComputeShader == null)
             {
-                var updaterShader = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(VERTEX_SEARCHER_SHADER_FILENAME);
+                var updaterShader = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(Constants.VERTEX_SEARCHER_SHADER_FILENAME);
                 searchNearestVertexDispatcher.ComputeShader = updaterShader;
 
                 updated = updated || updaterShader != null;
@@ -323,15 +316,20 @@ namespace TurningPage
         [Serializable]
         class CornerUvs
         {
-            public Vector2 leftBackwardCornerUv = new Vector2(1, 1);
-            public Vector2 rightBackwardCornerUv = new Vector2(1, 0);
-            public Vector2 leftForwardCornerUv = new Vector2(0, 1);
-            public Vector2 rightForwardCornerUv = new Vector2(0, 0);
+            [SerializeField] private Vector2 leftBackwardCornerUv = new Vector2(1, 1);
+            [SerializeField] private Vector2 rightBackwardCornerUv = new Vector2(1, 0);
+            [SerializeField] private Vector2 leftForwardCornerUv = new Vector2(0, 1);
+            [SerializeField] private Vector2 rightForwardCornerUv = new Vector2(0, 0);
+
+            public Vector2 LeftBackwardCornerUv => leftBackwardCornerUv;
+            public Vector2 RightBackwardCornerUv => rightBackwardCornerUv;
+            public Vector2 LeftForwardCornerUv => leftForwardCornerUv;
+            public Vector2 RightForwardCornerUv => rightForwardCornerUv;
 
             public Vector2 GetUvCoordinates(Vector2 normalizedPoint)
             {
-                var top = Vector2.Lerp(leftBackwardCornerUv, rightBackwardCornerUv, normalizedPoint.x);
-                var bottom = Vector2.Lerp(leftForwardCornerUv, rightForwardCornerUv, normalizedPoint.x);
+                var top = Vector2.Lerp(LeftBackwardCornerUv, RightBackwardCornerUv, normalizedPoint.x);
+                var bottom = Vector2.Lerp(LeftForwardCornerUv, RightForwardCornerUv, normalizedPoint.x);
                 return Vector2.Lerp(bottom, top, normalizedPoint.y);
             }
         }

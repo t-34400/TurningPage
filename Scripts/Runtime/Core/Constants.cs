@@ -1,0 +1,14 @@
+#nullable enable
+
+namespace TurningPage
+{
+    public static class Constants
+    {
+        public const string COMPUTE_SHADER_DIR = "Assets/TurningPage/ComputeShaders/Core/";
+        public const string INITIALIZER_SHADER_FILENAME = COMPUTE_SHADER_DIR + "InitialilzeVertices.compute";
+        public const string PREDICTER_SHADER_FILENAME = COMPUTE_SHADER_DIR + "PredictPositions.compute";
+        public const string SOLVER_SHADER_FILENAME = COMPUTE_SHADER_DIR + "SolveOnFineGrid.compute";
+        public const string UPDATER_SHADER_FILENAME = COMPUTE_SHADER_DIR + "UpdateVertices.compute";
+        public const string VERTEX_SEARCHER_SHADER_FILENAME = COMPUTE_SHADER_DIR + "SearchNearestVertex.compute";
+    }
+}

@@ -6,7 +6,7 @@ using UnityEngine;
 namespace TurningPage
 {
     [Serializable]
-    class InitializeVerticesDispatcher
+    public class InitializeVerticesDispatcher
     {
         [SerializeField] private ComputeShader computeShader = default!;
 

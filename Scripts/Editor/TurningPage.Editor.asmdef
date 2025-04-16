@@ -1,0 +1,18 @@
+{
+    "name": "TurningPage.Editor",
+    "rootNamespace": "TurningPage.Editor",
+    "references": [
+        "GUID:dd661b15dd95c2e4f9254d7ff096ac90"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
