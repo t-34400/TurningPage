@@ -56,7 +56,7 @@ namespace TurningPage
 
         public void InitializePage(bool isPageFlipped)
         {
-            initializeVerticesDispatcher.Dispatch(!isPageFlipped);
+            initializeVerticesDispatcher.Dispatch(isPageFlipped);
         }
 
         public bool TrySearchNearestVertex(Vector3 queryPoint, out NearestVertexSearchResult result)
@@ -67,6 +67,22 @@ namespace TurningPage
             result = _result ?? default;
 
             return _result != null;
+        }
+
+        public NearestVertexSearchResult SearchNearestNextPageVertex(Vector3 queryPoint)
+        {
+            var localQueryPoint = transform.InverseTransformPoint(queryPoint);
+            var result = searchNearestVertexDispatcher.SearchNearestNextPageVertex(localQueryPoint);
+
+            return result;
+        }
+
+        public NearestVertexSearchResult SearchNearestPreviousPageVertex(Vector3 queryPoint)
+        {
+            var localQueryPoint = transform.InverseTransformPoint(queryPoint);
+            var result = searchNearestVertexDispatcher.SearchNearestPreviousPageVertex(localQueryPoint);
+
+            return result;
         }
 
         public void SetPinchPoint(Vector2Int vertexId) => solveOnFineGridDispatcher.SetPinchPoint(vertexId);
@@ -127,7 +143,7 @@ namespace TurningPage
             predictPositionsDispatcher.Register(vertexBuffer, velocityBuffer, predictedPositionBuffer, gridSize, gridCount);
             solveOnFineGridDispatcher.Register(vertexBuffer, predictedPositionBuffer, gridSize, gridCount);
             updateVerticesDispatcher.Register(vertexBuffer, velocityBuffer, predictedPositionBuffer, gridSize, gridCount);
-            searchNearestVertexDispatcher.Register(vertexBuffer, gridCount);
+            searchNearestVertexDispatcher.Register(vertexBuffer, gridCount, meshSize);
 
             InitializePage(false);
         }

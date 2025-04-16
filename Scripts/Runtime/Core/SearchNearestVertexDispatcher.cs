@@ -14,6 +14,7 @@ namespace TurningPage
 
         private int checkedVerticesPerGroup;
         private Vector2Int gridCount;
+        private Vector2 meshSize;
 
         private int initialAggregationKernel;
         private int finalAggregationKernel;
@@ -34,11 +35,13 @@ namespace TurningPage
             }
         }
 
-        public void Register(GraphicsBuffer vertexBuffer, Vector2Int gridCount)
+        public void Register(GraphicsBuffer vertexBuffer, Vector2Int gridCount, Vector2 meshSize)
         {
             this.vertexBuffer = vertexBuffer;
 
             this.gridCount = gridCount;
+            this.meshSize = meshSize;
+
             var vertexCount = gridCount.x * (gridCount.y - 1);
 
             checkedVerticesPerGroup = 64 * checkedVerticesPerThread;
@@ -110,12 +113,54 @@ namespace TurningPage
 
             var distance = Vector3.Distance(position, queryPoint);
 
-            return new NearestVertexSearchResult()
-                {
-                    VertexId = vertexId,
-                    Position = position,
-                    Distance = distance,
-                };
+            return new NearestVertexSearchResult(
+                vertexId,
+                position,
+                distance
+            );
+        }
+
+        public NearestVertexSearchResult SearchNearestPreviousPageVertex(Vector3 queryPoint)
+        {
+            var flippedQueryPoint = new Vector3(queryPoint.x, queryPoint.y, -queryPoint.z);
+
+            var result = SearchNearestNextPageVertex(flippedQueryPoint);
+
+            var position = new Vector3(result.Position.x, result.Position.y, result.Position.z);
+
+            return new NearestVertexSearchResult(
+                result.VertexId, 
+                position, 
+                result.Distance
+            );
+        }
+
+        public NearestVertexSearchResult SearchNearestNextPageVertex(Vector3 queryPoint)
+        {
+            var cellSize = new Vector2(
+                meshSize.x / (gridCount.x - 1),
+                meshSize.y / (gridCount.y - 1)
+            );
+
+            int ix = Mathf.RoundToInt(queryPoint.x / cellSize.x);
+            int iy = Mathf.RoundToInt(queryPoint.z / cellSize.y);
+
+            ix = Mathf.Clamp(ix, 0, gridCount.x - 1);
+            iy = Mathf.Clamp(iy, 0, gridCount.y - 1);
+
+            Vector3 vertexLocalPos = new Vector3(
+                ix * cellSize.x,
+                0f,
+                iy * cellSize.y
+            );
+
+            float distance = Vector3.Distance(queryPoint, vertexLocalPos);
+
+            return new NearestVertexSearchResult(
+                new Vector2Int(ix, iy),
+                vertexLocalPos,
+                distance
+            );
         }
 
         public void Dispose()

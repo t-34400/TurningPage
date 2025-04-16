@@ -38,12 +38,12 @@ namespace TurningPage
             computeShader.SetInts("_GridCount", gridCount.x, gridCount.y);
         }
 
-        public void Dispatch(bool turningForward)
+        public void Dispatch(bool isPageFlipped)
         {
             var threadGroupX = Mathf.CeilToInt(gridCount.x / 8f);
             var threadGroupY = Mathf.CeilToInt(gridCount.y / 8f);
 
-            computeShader.SetBool("_TurningForward", turningForward);
+            computeShader.SetBool("_IsPageFlipped", isPageFlipped);
 
             computeShader.Dispatch(kernel, threadGroupX, threadGroupY, 1);
         }

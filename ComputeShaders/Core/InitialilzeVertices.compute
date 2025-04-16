@@ -7,7 +7,7 @@ RWStructuredBuffer<float3> velocityBuffer;
 
 float2 _GridSize;
 uint2 _GridCount;
-bool _TurningForward;
+bool _IsPageFlipped;
 
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
@@ -16,8 +16,11 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         return;
 
     uint index = id.y * _GridCount.x + id.x;
-    int gridDir = _TurningForward ? 1 : -1;
+    int gridDir = _IsPageFlipped ? -1 : 1;
 
-    vertexBuffer[index].position = float3(id.x * _GridSize.x, 0, gridDir * id.y * _GridSize.y);
+    vertexBuffer[index].position = float3(
+        id.x * _GridSize.x, 
+        0, 
+        gridDir * int(id.y) * _GridSize.y);
     velocityBuffer[index] = float3(0, 0, 0);
 }
