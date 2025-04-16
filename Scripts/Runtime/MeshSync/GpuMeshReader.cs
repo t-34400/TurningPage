@@ -30,7 +30,7 @@ namespace TurningPage.MeshSync
             }
         }
 
-        public void Update()
+        private void Update()
         {
             if (_request == null)
             {
@@ -51,7 +51,7 @@ namespace TurningPage.MeshSync
 
                 Mesh.MarkDynamic();
                 Mesh.SetVertexBufferData(vertexData, 0, 0, vertexData.Length);
-                Mesh.RecalculateNormals();
+                Mesh.RecalculateBounds();
 
                 meshUpdated?.Invoke(Mesh);
 
