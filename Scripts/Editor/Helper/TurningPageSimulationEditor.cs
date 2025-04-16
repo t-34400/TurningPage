@@ -132,8 +132,8 @@ namespace TurningPage.Editor
             {
                 meshRenderer.sharedMaterials = new[]
                 {
-                    simulation.FrontMaterial,
-                    simulation.BackMaterial
+                    Instantiate(simulation.FrontMaterial),
+                    Instantiate(simulation.BackMaterial)
                 };
             }
             else
