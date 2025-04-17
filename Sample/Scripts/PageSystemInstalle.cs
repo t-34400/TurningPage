@@ -1,5 +1,6 @@
 #nullable enable
 
+using System;
 using TurningPage.Sample.Domain;
 using TurningPage.Sample.Presentation;
 using TurningPage.Sample.UseCase;
@@ -24,6 +25,8 @@ namespace TurningPage.Sample
 
         private IPagePinchController PinchController => pagePinchController;
 
+        public event Action<int>? TurningPageUpdated;
+
         public bool TrySetPageTextures(PageTexture[] pageTextures)
         {
             if (pageTextures.Length <= 0)
@@ -36,7 +39,12 @@ namespace TurningPage.Sample
             if (fixLastPage)
                 --totalTurnablePages;
 
+            if (pageManager != null)
+            {
+                pageManager.CurrentPageChanged -= InvokeTurningPageUpdated;
+            }
             pageManager = new(totalTurnablePages);
+            pageManager.CurrentPageChanged += InvokeTurningPageUpdated;
 
             pagePinchUseCase ??= new PagePinchUseCase(pageManager, PinchController);
             pagePinchUseCase.UpdatePageManager(pageManager);
@@ -49,6 +57,8 @@ namespace TurningPage.Sample
 
             return true;
         }
+
+        private void InvokeTurningPageUpdated(int id) => TurningPageUpdated?.Invoke(id);
 
         private void Awake()
         {
