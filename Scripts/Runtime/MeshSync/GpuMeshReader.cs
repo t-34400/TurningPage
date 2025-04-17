@@ -1,5 +1,6 @@
 #nullable enable
 
+using System;
 using System.Threading.Tasks;
 using Unity.Collections;
 using UnityEngine;
@@ -31,6 +32,8 @@ namespace TurningPage.MeshSync
                 return mesh;
             }
         }
+
+        public event Action<Mesh>? MeshUpdated;
 
         public async Task<bool> ForceSyncMesh(Mesh mesh)
         {
@@ -70,7 +73,9 @@ namespace TurningPage.MeshSync
                 var vertexData = request.GetData<Vertex>();
 
                 ApplyVertexData(Mesh, vertexData);
-                meshUpdated?.Invoke(Mesh);
+
+                MeshUpdated?.Invoke(Mesh);
+                meshUpdated.Invoke(Mesh);
 
                 RequestReadVertexData();
             }
