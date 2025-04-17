@@ -55,6 +55,8 @@ namespace TurningPage.Sample
                 pinchDriver.SetUseCase(pagePinchUseCase);
             }
 
+            InvokeTurningPageUpdated(0);
+
             return true;
         }
 
