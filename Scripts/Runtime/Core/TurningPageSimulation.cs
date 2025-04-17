@@ -54,13 +54,24 @@ namespace TurningPage
         public Vector2Int GridCount => gridCount;
         public Vector2 GridSize => new (meshSize.x / (gridCount.x - 1), meshSize.y / (gridCount.y - 1));
 
+        public bool AreBuffersRegistered { get; private set; } = false;
+
         public void InitializePage(bool isPageFlipped)
         {
+            if (!AreBuffersRegistered)
+                return;
+
             initializeVerticesDispatcher.Dispatch(isPageFlipped);
         }
 
         public bool TrySearchNearestVertex(Vector3 queryPoint, out NearestVertexSearchResult result)
         {
+            if (!AreBuffersRegistered)
+            {
+                result = default;
+                return false;
+            }
+
             var localQueryPoint = transform.InverseTransformPoint(queryPoint);
             var _result = searchNearestVertexDispatcher.SearchNearestVertex(localQueryPoint);
 
@@ -150,6 +161,8 @@ namespace TurningPage
             solveOnFineGridDispatcher.Register(vertexBuffer, predictedPositionBuffer, gridSize, gridCount);
             updateVerticesDispatcher.Register(vertexBuffer, velocityBuffer, predictedPositionBuffer, gridSize, gridCount);
             searchNearestVertexDispatcher.Register(vertexBuffer, gridCount, meshSize);
+
+            AreBuffersRegistered = true;
 
             InitializePage(false);
         }

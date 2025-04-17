@@ -48,8 +48,10 @@ namespace TurningPage.Sample
 
             pagePinchUseCase ??= new PagePinchUseCase(pageManager, PinchController);
             pagePinchUseCase.UpdatePageManager(pageManager);
+            pagePinchUseCase.ResetAndInitialize();
 
             modelTextureManager.Initialize(pageManager, pageTextures);
+
             foreach (var pinchDriver in pinchDrivers)
             {
                 pinchDriver.SetUseCase(pagePinchUseCase);
