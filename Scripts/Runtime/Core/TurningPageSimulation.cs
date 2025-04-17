@@ -119,10 +119,16 @@ namespace TurningPage
                 return;
             }
 
-            meshRenderer = gameObject.AddComponent<MeshRenderer>();
+            meshRenderer = gameObject.GetComponent<MeshRenderer>();
+            if (meshRenderer == null)
+                meshRenderer = gameObject.AddComponent<MeshRenderer>();
+
             meshRenderer.SetMaterials(new () { frontMaterial, backMaterial });
 
-            var meshFilter = gameObject.AddComponent<MeshFilter>();
+            var meshFilter = gameObject.GetComponent<MeshFilter>();
+            if (meshFilter == null)
+                meshFilter = gameObject.AddComponent<MeshFilter>();
+
             var mesh = GenerateGridMesh(meshSize, gridCount, cornerUvs);
             meshFilter.mesh = mesh;
 
