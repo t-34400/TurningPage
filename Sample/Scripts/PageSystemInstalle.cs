@@ -13,6 +13,7 @@ namespace TurningPage.Sample
         [SerializeField] private ModelTextureManager modelTextureManager = default!;
         [SerializeField] private BasePinchDriver[] pinchDrivers = default!;
         [SerializeField] private PagePinchController pagePinchController = default!;
+        [SerializeField] private bool fixLastPage = false;
         [SerializeField] private PageTexture[] pageTextures = default!;
 
         private TurningPageManager pageManager = new (1);
@@ -27,7 +28,12 @@ namespace TurningPage.Sample
 
             this.pageTextures = pageTextures;
 
-            pageManager = new(pageTextures.Length);
+            var totalTurnablePages = pageTextures.Length;
+
+            if (fixLastPage)
+                --totalTurnablePages;
+
+            pageManager = new(totalTurnablePages);
 
             pagePinchUseCase ??= new PagePinchUseCase(pageManager, PinchController);
             pagePinchUseCase.UpdatePageManager(pageManager);

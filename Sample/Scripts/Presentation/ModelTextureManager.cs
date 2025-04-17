@@ -33,13 +33,14 @@ namespace TurningPage.Sample.Presentation
                 simulation.BackMaterial.mainTexture = pageTexture.backTexture;
             }
 
-            SetPageTexture(previousPageMeshRenderer, pageIndex - 1);
-            SetPageTexture(nextPageMeshRenderer, pageIndex + 1);
+            SetPageTexture(previousPageMeshRenderer, 0, pageIndex - 1);
+            SetPageTexture(nextPageMeshRenderer, pageIndex + 1, pageTextures.Length - 1);
         }
 
-        private void SetPageTexture(MeshRenderer meshRenderer, int pageIndex)
+        private void SetPageTexture(MeshRenderer meshRenderer, int frontPageIndex, int backPageIndex)
         {
-            if (TryGetPageTexture(pageIndex, out var pageTexture))
+            if (TryGetPageTexture(frontPageIndex, out var frontPageTexture)
+                && TryGetPageTexture(backPageIndex, out var backPageTexture))
             {
                 meshRenderer.enabled = true;
 
@@ -48,12 +49,12 @@ namespace TurningPage.Sample.Presentation
                 if (materials.Length < 1)
                     return;
 
-                materials[0].mainTexture = pageTexture.frontTexture;
+                materials[0].mainTexture = frontPageTexture.frontTexture;
 
                 if (materials.Length < 2)
                     return;
 
-                materials[1].mainTexture = pageTexture.backTexture;
+                materials[1].mainTexture = backPageTexture.backTexture;
             }
             else
             {

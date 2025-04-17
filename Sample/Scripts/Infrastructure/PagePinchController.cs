@@ -15,57 +15,28 @@ namespace TurningPage.Sample
 
         public bool IsPinched { get; private set; }
 
-        public PinchResult TryPinch(Vector3 pinchPoint, float maxPinchDistance)
+        public PinchResult TryPinch(Vector3 pinchPoint, float maxPinchDistance, bool hasPreviousPage, bool hasNextPage)
         {
             if (IsPinched)
                 return PinchResult.None;
 
-            if (simulation.TrySearchNearestVertex(pinchPoint, out var result)
-                && result.Distance < maxPinchDistance
-                && result.VertexId.y > 0)
-            {
-                simulation.SetPinchPoint(result.VertexId);
-
-                IsPinched = true;
+            if (TryPinchNearestVertex(pinchPoint, maxPinchDistance))
                 return PinchResult.CurrentPage;
+
+            if (hasNextPage)
+            {
+                var result = TryPinchNextPageVertex(pinchPoint, maxPinchDistance);
+
+                if (result != null)
+                    return result.Value;
             }
 
-            result = simulation.SearchNearestNextPageVertex(pinchPoint);
-
-            if (result.Distance < maxPinchDistance
-                && result.VertexId.y > 0)
+            if (hasPreviousPage)
             {
-                simulation.SetPinchPoint(result.VertexId);
-                IsPinched = true;
+                var result = TryPinchPreviousPageVertex(pinchPoint, maxPinchDistance);
 
-                if (GetCurrentPageSide() == PageSide.Previous)
-                {
-                    simulation.InitializePage(false);
-                    return PinchResult.NextPage;
-                }
-                else
-                {
-                    return PinchResult.CurrentPage;
-                }
-            }
-
-            result = simulation.SearchNearestPreviousPageVertex(pinchPoint);
-
-            if (result.Distance < maxPinchDistance
-                && result.VertexId.y > 0)
-            {
-                simulation.SetPinchPoint(result.VertexId);
-                IsPinched = true;
-
-                if (GetCurrentPageSide() == PageSide.Previous)
-                {
-                    return PinchResult.CurrentPage;
-                }
-                else
-                {
-                    simulation.InitializePage(true);
-                    return PinchResult.PreviousPage;
-                }
+                if (result != null)
+                    return result.Value;
             }
 
             return PinchResult.None;
@@ -101,7 +72,68 @@ namespace TurningPage.Sample
 
             return meshCenter.z < 0 ? PageSide.Previous : PageSide.Next;
         }
+
+        private bool TryPinchNearestVertex(Vector3 pinchPoint, float maxPinchDistance)
+        {
+            if (simulation.TrySearchNearestVertex(pinchPoint, out var result)
+                && result.Distance < maxPinchDistance
+                && result.VertexId.y > 0)
+            {
+                simulation.SetPinchPoint(result.VertexId);
+
+                IsPinched = true;
+                return true;
+            }
+
+            return false;
+        }
+
+        private PinchResult? TryPinchNextPageVertex(Vector3 pinchPoint, float maxPinchDistance)
+        {
+            var result = simulation.SearchNearestNextPageVertex(pinchPoint);
+
+            if (result.Distance < maxPinchDistance
+                && result.VertexId.y > 0)
+            {
+                simulation.SetPinchPoint(result.VertexId);
+                IsPinched = true;
+
+                if (GetCurrentPageSide() == PageSide.Previous)
+                {
+                    simulation.InitializePage(false);
+                    return PinchResult.NextPage;
+                }
+                else
+                {
+                    return PinchResult.CurrentPage;
+                }
+            }
+
+            return null;
+        }
+
+        private PinchResult? TryPinchPreviousPageVertex(Vector3 pinchPoint, float maxPinchDistance)
+        {
+            var result = simulation.SearchNearestPreviousPageVertex(pinchPoint);
+
+            if (result.Distance < maxPinchDistance
+                && result.VertexId.y > 0)
+            {
+                simulation.SetPinchPoint(result.VertexId);
+                IsPinched = true;
+
+                if (GetCurrentPageSide() == PageSide.Previous)
+                {
+                    return PinchResult.CurrentPage;
+                }
+                else
+                {
+                    simulation.InitializePage(true);
+                    return PinchResult.PreviousPage;
+                }
+            }
+
+            return null;
+        }
     }
-
-
 }

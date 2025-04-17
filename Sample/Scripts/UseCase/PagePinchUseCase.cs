@@ -30,7 +30,7 @@ namespace TurningPage.Sample.UseCase
             if (pagePinchController.IsPinched)
                 return false;
 
-            var result = pagePinchController.TryPinch(pinchPoint, maxPinchDistance);
+            var result = pagePinchController.TryPinch(pinchPoint, maxPinchDistance, pageManager.HasPreviousPage, pageManager.HasNextPage);
             
             switch (result)
             {

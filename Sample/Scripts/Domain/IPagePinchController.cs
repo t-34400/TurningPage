@@ -8,7 +8,7 @@ namespace TurningPage.Sample.Domain
     {
         bool IsPinched { get; }
 
-        PinchResult TryPinch(Vector3 pinchPoint, float maxPinchDistance);
+        PinchResult TryPinch(Vector3 pinchPoint, float maxPinchDistance, bool hasPreviousPage, bool hasNextPage);
         void UpdatePinchData(Vector3 pinchPoint, Vector3 pinchRight, Vector3 pinchForward);
         void Release();
         PageSide ResetAndInitialize();
