@@ -30,22 +30,25 @@ namespace TurningPage
         private GraphicsBuffer? velocityBuffer = null;
         private GraphicsBuffer? predictedPositionBuffer = null;
 
+        private Material? _frontMaterial;
+        private Material? _backMaterial;
+
         public Material FrontMaterial
         {
-            get => frontMaterial;
+            get => _frontMaterial ??= Instantiate(frontMaterial);
             set
             {
-                frontMaterial = value;
-                meshRenderer?.SetMaterials(new () { frontMaterial, backMaterial });
+                _frontMaterial = value;
+                meshRenderer?.SetMaterials(new () { FrontMaterial, BackMaterial });
             }
         }
         public Material BackMaterial
         {
-            get => backMaterial;
+            get => _backMaterial ??= Instantiate(backMaterial);
             set
             {
-                backMaterial = value;
-                meshRenderer?.SetMaterials(new () { frontMaterial, backMaterial });
+                _backMaterial = value;
+                meshRenderer?.SetMaterials(new () { FrontMaterial, BackMaterial });
             }
         }
 
@@ -134,7 +137,7 @@ namespace TurningPage
             if (meshRenderer == null)
                 meshRenderer = gameObject.AddComponent<MeshRenderer>();
 
-            meshRenderer.SetMaterials(new () { frontMaterial, backMaterial });
+            meshRenderer.SetMaterials(new () { FrontMaterial, BackMaterial });
 
             var meshFilter = gameObject.GetComponent<MeshFilter>();
             if (meshFilter == null)

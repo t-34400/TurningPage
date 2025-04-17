@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using System.Linq;
 using TurningPage.Sample.Domain;
 using TurningPage.Sample.Presentation;
 using TurningPage.Sample.UseCase;
@@ -33,7 +34,6 @@ namespace TurningPage.Sample
                 return false;
 
             this.pageTextures = pageTextures;
-
             var totalTurnablePages = pageTextures.Length;
 
             if (fixLastPage)
@@ -46,18 +46,30 @@ namespace TurningPage.Sample
             pageManager = new(totalTurnablePages);
             pageManager.CurrentPageChanged += InvokeTurningPageUpdated;
 
-            pagePinchUseCase ??= new PagePinchUseCase(pageManager, PinchController);
+            pagePinchUseCase = new PagePinchUseCase(pageManager, PinchController);
             pagePinchUseCase.UpdatePageManager(pageManager);
             pagePinchUseCase.ResetAndInitialize();
 
             modelTextureManager.Initialize(pageManager, pageTextures);
 
-            foreach (var pinchDriver in pinchDrivers)
+            if (totalTurnablePages > 0)
             {
-                pinchDriver.SetUseCase(pagePinchUseCase);
+                foreach (var pinchDriver in pinchDrivers)
+                {
+                    pinchDriver.SetUseCase(pagePinchUseCase);
+                }
+            }
+            else
+            {
+                foreach (var pinchDriver in pinchDrivers)
+                {
+                    pinchDriver.SetUseCase(null);
+                }
             }
 
             InvokeTurningPageUpdated(0);
+
+            Debug.Log($"Page Texture Set: Texture Count = {pageTextures.Length}, Turnable Pages: {totalTurnablePages}", this);
 
             return true;
         }

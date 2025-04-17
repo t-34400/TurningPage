@@ -18,6 +18,9 @@ namespace TurningPage.Sample.Presentation
         
         public void Initialize(TurningPageManager manager, PageTexture[] textures)
         {
+            if (pageManager != null)
+                pageManager.CurrentPageChanged -= OnPageChanged;
+
             pageManager = manager;
             pageTextures = textures;
 
@@ -27,8 +30,12 @@ namespace TurningPage.Sample.Presentation
 
         private void OnPageChanged(int pageIndex)
         {
+            Debug.Log($"[Page Texture] OnPageChanged: {pageIndex}/{pageTextures.Length}");
+
             if (TryGetPageTexture(pageIndex, out var pageTexture))
             {
+                Debug.Log($"[Page Texture] Set Page Texture: {pageIndex}");
+
                 simulation.FrontMaterial.mainTexture = pageTexture.FrontTexture;
                 simulation.BackMaterial.mainTexture = pageTexture.BackTexture;
             }
@@ -39,15 +46,20 @@ namespace TurningPage.Sample.Presentation
 
         private void SetPageTexture(MeshRenderer meshRenderer, int frontPageIndex, int backPageIndex)
         {
+            Debug.Log($"[Page Texture] SetPageTexture: {meshRenderer} {frontPageIndex}, {backPageIndex}");
+
             if (meshRenderer == null)
                 return;
+
 
             if (TryGetPageTexture(frontPageIndex, out var frontPageTexture)
                 && TryGetPageTexture(backPageIndex, out var backPageTexture))
             {
+                Debug.Log($"[Page Texture] Set Stacked Page Texture: Front={frontPageIndex}, Back={backPageIndex}");
+    
                 meshRenderer.gameObject.SetActive(true);
 
-                var materials = meshRenderer.sharedMaterials;
+                var materials = meshRenderer.materials;
 
                 if (materials.Length < 1)
                     return;

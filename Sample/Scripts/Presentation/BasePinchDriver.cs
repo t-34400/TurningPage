@@ -9,7 +9,7 @@ namespace TurningPage.Sample.Presentation
     {
         protected PagePinchUseCase? useCase;
 
-        public void SetUseCase(PagePinchUseCase useCase)
+        public void SetUseCase(PagePinchUseCase? useCase)
         {
             this.useCase = useCase;
         }
