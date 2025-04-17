@@ -64,6 +64,8 @@ namespace TurningPage
 
         public void SetPinchPoint(Vector2Int pinchedVertexId)
         {
+            Debug.Log($"Set Pinch Point: ID={pinchedVertexId}");
+
             if (!TryGetVertexData(pinchedVertexId, out var vertex))
             {
                 return;
@@ -136,7 +138,7 @@ namespace TurningPage
             const float OFFSET = 0.01f;
 
             var seamStart = Vector3.zero;
-            var seamEnd = Vector3.right * gridSize.x;
+            var seamEnd = Vector3.right * gridSize.x * gridCount.x;
 
             var maxDistanceFromStart = 
                 new Vector2(
@@ -146,7 +148,7 @@ namespace TurningPage
             var maxDistanceFromEnd = 
                 new Vector2(
                     gridSize.x * (gridCount.x - pinchedVertexId.x - 1), 
-                    gridSize.y * (gridCount.y - pinchedVertexId.y - 1)
+                    gridSize.y * pinchedVertexId.y
                 ).magnitude;
 
             var distanceFromStart = (pinchPoint - seamStart).magnitude;
@@ -156,25 +158,29 @@ namespace TurningPage
             {
                 if (distanceFromStart > maxDistanceFromStart + OFFSET)
                 {
-                    pinchPoint += (seamStart - pinchPoint).normalized * (distanceFromStart - maxDistanceFromStart);
+                    var delta = (seamStart - pinchPoint).normalized * (distanceFromStart - maxDistanceFromStart);
+                    pinchPoint += delta;
+
+                    distanceFromStart = (pinchPoint - seamStart).magnitude;
+                    distanceFromEnd = (pinchPoint - seamEnd).magnitude;
                 }
                 else if (distanceFromEnd < maxDistanceFromEnd + OFFSET)
                 {
                     return pinchPoint;
                 }
 
-                distanceFromEnd = (pinchPoint - seamEnd).magnitude;
-
                 if (distanceFromEnd > maxDistanceFromEnd + OFFSET)
                 {
-                    pinchPoint += (seamEnd - pinchPoint).normalized * (distanceFromEnd - maxDistanceFromEnd);
+                    var delta = (seamEnd - pinchPoint).normalized * (distanceFromEnd - maxDistanceFromEnd);
+                    pinchPoint += delta;
+
+                    distanceFromStart = (pinchPoint - seamStart).magnitude;
+                    distanceFromEnd = (pinchPoint - seamEnd).magnitude;
                 }
                 else if (distanceFromStart < maxDistanceFromStart + OFFSET)
                 {
                     return pinchPoint;
                 }
-
-                distanceFromStart = (pinchPoint - seamStart).magnitude;
             }
 
             return latestPinchPoint;
