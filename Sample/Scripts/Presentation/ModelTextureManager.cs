@@ -42,7 +42,7 @@ namespace TurningPage.Sample.Presentation
             if (TryGetPageTexture(frontPageIndex, out var frontPageTexture)
                 && TryGetPageTexture(backPageIndex, out var backPageTexture))
             {
-                meshRenderer.enabled = true;
+                meshRenderer.gameObject.SetActive(true);
 
                 var materials = meshRenderer.sharedMaterials;
 
@@ -58,7 +58,7 @@ namespace TurningPage.Sample.Presentation
             }
             else
             {
-                meshRenderer.enabled = false;
+                meshRenderer.gameObject.SetActive(false);
             }
         }
 
