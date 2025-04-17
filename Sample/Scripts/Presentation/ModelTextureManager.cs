@@ -80,5 +80,11 @@ namespace TurningPage.Sample.Presentation
     {
         public Texture frontTexture;
         public Texture backTexture;
+
+        public PageTexture(Texture frontTexture, Texture backTexture)
+        {
+            this.frontTexture = frontTexture;
+            this.backTexture = backTexture;
+        }
     }
 }
