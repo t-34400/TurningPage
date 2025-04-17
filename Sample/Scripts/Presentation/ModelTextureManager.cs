@@ -29,8 +29,8 @@ namespace TurningPage.Sample.Presentation
         {
             if (TryGetPageTexture(pageIndex, out var pageTexture))
             {
-                simulation.FrontMaterial.mainTexture = pageTexture.frontTexture;
-                simulation.BackMaterial.mainTexture = pageTexture.backTexture;
+                simulation.FrontMaterial.mainTexture = pageTexture.FrontTexture;
+                simulation.BackMaterial.mainTexture = pageTexture.BackTexture;
             }
 
             SetPageTexture(previousPageMeshRenderer, 0, pageIndex - 1);
@@ -39,6 +39,9 @@ namespace TurningPage.Sample.Presentation
 
         private void SetPageTexture(MeshRenderer meshRenderer, int frontPageIndex, int backPageIndex)
         {
+            if (meshRenderer == null)
+                return;
+
             if (TryGetPageTexture(frontPageIndex, out var frontPageTexture)
                 && TryGetPageTexture(backPageIndex, out var backPageTexture))
             {
@@ -49,12 +52,12 @@ namespace TurningPage.Sample.Presentation
                 if (materials.Length < 1)
                     return;
 
-                materials[0].mainTexture = frontPageTexture.frontTexture;
+                materials[0].mainTexture = frontPageTexture.FrontTexture;
 
                 if (materials.Length < 2)
                     return;
 
-                materials[1].mainTexture = backPageTexture.backTexture;
+                materials[1].mainTexture = backPageTexture.BackTexture;
             }
             else
             {
@@ -66,7 +69,7 @@ namespace TurningPage.Sample.Presentation
         {
             if (pageIndex < 0 || pageIndex >= pageTextures.Length)
             {
-                pageTexture = default;
+                pageTexture = default!;
                 return false;
             }
 
@@ -76,10 +79,13 @@ namespace TurningPage.Sample.Presentation
     }
 
     [Serializable]
-    public struct PageTexture
+    public class PageTexture
     {
-        public Texture frontTexture;
-        public Texture backTexture;
+        [SerializeField] Texture frontTexture = default!;
+        [SerializeField] Texture backTexture = default!;
+
+        public Texture FrontTexture => frontTexture;
+        public Texture BackTexture => backTexture;
 
         public PageTexture(Texture frontTexture, Texture backTexture)
         {
