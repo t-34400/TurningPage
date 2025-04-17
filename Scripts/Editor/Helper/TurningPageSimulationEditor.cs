@@ -1,5 +1,6 @@
 #nullable enable
 
+using System.IO;
 using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
@@ -120,11 +121,13 @@ namespace TurningPage.Editor
                 DestroyImmediate(existing.gameObject);
             }
 
+            var meshAsset = CreateAndSaveAsset(mesh, $"{Constants.PACKAGE_DIR}Models/{name}.asset");
+
             var pageGO = new GameObject(name);
             pageGO.transform.SetParent(parent, false);
 
             var meshFilter = pageGO.AddComponent<MeshFilter>();
-            meshFilter.sharedMesh = mesh;
+            meshFilter.sharedMesh = meshAsset;
 
             var meshRenderer = pageGO.AddComponent<MeshRenderer>();
 
@@ -132,8 +135,8 @@ namespace TurningPage.Editor
             {
                 meshRenderer.sharedMaterials = new[]
                 {
-                    Instantiate(simulation.FrontMaterial),
-                    Instantiate(simulation.BackMaterial)
+                    CreateAndSaveAsset(Instantiate(simulation.FrontMaterial), $"{Constants.PACKAGE_DIR}Materials/{name}_FrontMaterial.asset"),
+                    CreateAndSaveAsset(Instantiate(simulation.BackMaterial), $"{Constants.PACKAGE_DIR}Materials/{name}_BackMaterial.asset")
                 };
             }
             else
@@ -142,6 +145,21 @@ namespace TurningPage.Editor
             }
 
             Debug.Log($"[TurningPage] Created page GameObject '{name}' with mesh and materials");
+        }
+
+        public static T CreateAndSaveAsset<T>(T asset, string path) where T : UnityEngine.Object
+        {
+            var directory = Path.GetDirectoryName(path);
+            if (!Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            AssetDatabase.CreateAsset(asset, path);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            return asset;
         }
     }
 }

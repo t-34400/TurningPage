@@ -4,7 +4,8 @@ namespace TurningPage
 {
     public static class Constants
     {
-        public const string COMPUTE_SHADER_DIR = "Assets/TurningPage/ComputeShaders/Core/";
+        public const string PACKAGE_DIR = "Assets/TurningPage/";
+        public const string COMPUTE_SHADER_DIR = PACKAGE_DIR + "ComputeShaders/Core/";
         public const string INITIALIZER_SHADER_FILENAME = COMPUTE_SHADER_DIR + "InitialilzeVertices.compute";
         public const string PREDICTER_SHADER_FILENAME = COMPUTE_SHADER_DIR + "PredictPositions.compute";
         public const string SOLVER_SHADER_FILENAME = COMPUTE_SHADER_DIR + "SolveOnFineGrid.compute";
