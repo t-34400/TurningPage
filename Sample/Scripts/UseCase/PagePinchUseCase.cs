@@ -78,5 +78,7 @@ namespace TurningPage.Sample.UseCase
 
             pagePinchController.Release();
         }
+
+        public PageSide GetCurrentPageSide() => pagePinchController.GetCurrentPageSide();
     }
 }

@@ -19,6 +19,9 @@ namespace TurningPage.Sample
         private TurningPageManager pageManager = new (1);
         private PagePinchUseCase? pagePinchUseCase;
 
+        public int CurrentTurningPage => pageManager.CurrentTurningPage;
+        public PageSide PageSide => pagePinchUseCase?.GetCurrentPageSide() ?? PageSide.Next;
+
         private IPagePinchController PinchController => pagePinchController;
 
         public bool TrySetPageTextures(PageTexture[] pageTextures)
