@@ -292,38 +292,38 @@ namespace TurningPage
         {
             bool updated = false;
 
-            if (initializeVerticesDispatcher.ComputeShader == null)
+            if (initializeVerticesDispatcher.computeShader == null)
             {
                 var initializerShader = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(Constants.INITIALIZER_SHADER_FILENAME);
-                initializeVerticesDispatcher.ComputeShader = initializerShader;
+                initializeVerticesDispatcher.computeShader = initializerShader;
 
                 updated = updated || initializerShader != null;
             }
-            if (predictPositionsDispatcher.ComputeShader == null)
+            if (predictPositionsDispatcher.computeShader == null)
             {
                 var predictorShader = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(Constants.PREDICTER_SHADER_FILENAME);
-                predictPositionsDispatcher.ComputeShader = predictorShader;
+                predictPositionsDispatcher.computeShader = predictorShader;
 
                 updated = updated || predictorShader != null;
             }
-            if (solveOnFineGridDispatcher.ComputeShader == null)
+            if (solveOnFineGridDispatcher.computeShader == null)
             {
                 var solverShader = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(Constants.SOLVER_SHADER_FILENAME);
-                solveOnFineGridDispatcher.ComputeShader = solverShader;
+                solveOnFineGridDispatcher.computeShader = solverShader;
 
                 updated = updated || solverShader != null;
             }
-            if (updateVerticesDispatcher.ComputeShader == null)
+            if (updateVerticesDispatcher.computeShader == null)
             {
                 var updaterShader = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(Constants.UPDATER_SHADER_FILENAME);
-                updateVerticesDispatcher.ComputeShader = updaterShader;
+                updateVerticesDispatcher.computeShader = updaterShader;
 
                 updated = updated || updaterShader != null;
             }
-            if (searchNearestVertexDispatcher.ComputeShader == null)
+            if (searchNearestVertexDispatcher.computeShader == null)
             {
                 var updaterShader = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(Constants.VERTEX_SEARCHER_SHADER_FILENAME);
-                searchNearestVertexDispatcher.ComputeShader = updaterShader;
+                searchNearestVertexDispatcher.computeShader = updaterShader;
 
                 updated = updated || updaterShader != null;
             }

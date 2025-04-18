@@ -8,34 +8,26 @@ namespace TurningPage
     [Serializable]
     public class InitializeVerticesDispatcher
     {
-        [SerializeField] private ComputeShader computeShader = default!;
+        [SerializeField] internal ComputeShader computeShader = default!;
+
+        private ComputeShader? _computeShader;
 
         private Vector2Int gridCount;
         private int kernel;
 
-        public ComputeShader? ComputeShader
-        {
-            get => computeShader;
-            set
-            {
-                if (value != null)
-                {
-                    computeShader = value;
-                }
-            }
-        }
+        public ComputeShader ComputeShader  => _computeShader ??= UnityEngine.Object.Instantiate(computeShader);
 
         public void Register(GraphicsBuffer vertexBuffer, GraphicsBuffer velocityBuffer, Vector2 gridSize, Vector2Int gridCount)
         {
             this.gridCount = gridCount;
 
-            kernel = computeShader.FindKernel("CSMain");
+            kernel = ComputeShader.FindKernel("CSMain");
 
-            computeShader.SetBuffer(kernel, "vertexBuffer", vertexBuffer);
-            computeShader.SetBuffer(kernel, "velocityBuffer", velocityBuffer);
+            ComputeShader.SetBuffer(kernel, "vertexBuffer", vertexBuffer);
+            ComputeShader.SetBuffer(kernel, "velocityBuffer", velocityBuffer);
 
-            computeShader.SetFloats("_GridSize", gridSize.x, gridSize.y);
-            computeShader.SetInts("_GridCount", gridCount.x, gridCount.y);
+            ComputeShader.SetFloats("_GridSize", gridSize.x, gridSize.y);
+            ComputeShader.SetInts("_GridCount", gridCount.x, gridCount.y);
         }
 
         public void Dispatch(bool isPageFlipped)
@@ -43,9 +35,13 @@ namespace TurningPage
             var threadGroupX = Mathf.CeilToInt(gridCount.x / 8f);
             var threadGroupY = Mathf.CeilToInt(gridCount.y / 8f);
 
-            computeShader.SetBool("_IsPageFlipped", isPageFlipped);
+            ComputeShader.SetBool("_IsPageFlipped", isPageFlipped);
 
-            computeShader.Dispatch(kernel, threadGroupX, threadGroupY, 1);
+            ComputeShader.Dispatch(kernel, threadGroupX, threadGroupY, 1);
         }
+
+# if UNITY_EDITOR
+        public void SetComputeShader_Editor(ComputeShader computeShader) => this.computeShader = computeShader;
+# endif
     }
 }

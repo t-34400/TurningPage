@@ -8,37 +8,29 @@ namespace TurningPage
     [Serializable]
     class PredictPositionsDispatcher
     {
-        [SerializeField] private ComputeShader computeShader = default!;
+        [SerializeField] internal ComputeShader computeShader = default!;
         [SerializeField] private Vector3 gravity = Vector3.down * 100f;
         [SerializeField] private float resistance = 1f;
+
+        private ComputeShader? _computeShader;
 
         private Vector2Int gridCount;
         private int kernel;
 
-        public ComputeShader? ComputeShader
-        {
-            get => computeShader;
-            set
-            {
-                if (value != null)
-                {
-                    computeShader = value;
-                }
-            }
-        }
+        public ComputeShader ComputeShader  => _computeShader ??= UnityEngine.Object.Instantiate(computeShader);
 
         public void Register(GraphicsBuffer vertexBuffer, GraphicsBuffer velocityBuffer, GraphicsBuffer predictedPositionBuffer, Vector2 gridSize, Vector2Int gridCount)
         {
             this.gridCount = gridCount;
 
-            kernel = computeShader.FindKernel("CSMain");
+            kernel = ComputeShader.FindKernel("CSMain");
 
-            computeShader.SetBuffer(kernel, "vertexBuffer", vertexBuffer);
-            computeShader.SetBuffer(kernel, "velocityBuffer", velocityBuffer);
-            computeShader.SetBuffer(kernel, "predictedPositionBuffer", predictedPositionBuffer);
+            ComputeShader.SetBuffer(kernel, "vertexBuffer", vertexBuffer);
+            ComputeShader.SetBuffer(kernel, "velocityBuffer", velocityBuffer);
+            ComputeShader.SetBuffer(kernel, "predictedPositionBuffer", predictedPositionBuffer);
 
-            computeShader.SetFloats("_GridSize", gridSize.x, gridSize.y);
-            computeShader.SetInts("_GridCount", gridCount.x, gridCount.y);
+            ComputeShader.SetFloats("_GridSize", gridSize.x, gridSize.y);
+            ComputeShader.SetInts("_GridCount", gridCount.x, gridCount.y);
         }
 
         public void Dispatch(Transform transform, float deltaTime)
@@ -48,11 +40,11 @@ namespace TurningPage
 
             var stepGravity = transform.InverseTransformDirection(gravity * deltaTime * deltaTime);
 
-            computeShader.SetFloats("_Gravity", stepGravity.x, stepGravity.y, stepGravity.z);
-            computeShader.SetFloat("_Resistance", resistance);
-            computeShader.SetFloat("_DeltaTime", deltaTime);
+            ComputeShader.SetFloats("_Gravity", stepGravity.x, stepGravity.y, stepGravity.z);
+            ComputeShader.SetFloat("_Resistance", resistance);
+            ComputeShader.SetFloat("_DeltaTime", deltaTime);
 
-            computeShader.Dispatch(kernel, threadGroupX, threadGroupY, 1);
+            ComputeShader.Dispatch(kernel, threadGroupX, threadGroupY, 1);
         }
     }
 }

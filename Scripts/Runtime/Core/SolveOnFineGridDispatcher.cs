@@ -8,7 +8,7 @@ namespace TurningPage
     [Serializable]
     class SolveOnFineGridDispatcher
     {
-        [SerializeField] private ComputeShader computeShader = default!;
+        [SerializeField] internal ComputeShader computeShader = default!;
         [Header("Stretch")]
         [SerializeField] private float stretchStiffness = 10000f;
         [SerializeField] private float stretchDampingFactor = 0.1f;
@@ -25,6 +25,8 @@ namespace TurningPage
         [SerializeField] private float pinchRotationStiffness = 100f;
         [SerializeField] private float pinchRotationDampingFactor = 0.8f;
 
+        private ComputeShader? _computeShader;
+
         private int kernel;
         private GraphicsBuffer? vertexBuffer;
 
@@ -34,17 +36,7 @@ namespace TurningPage
         private Vector2Int pinchedVertexId;
         private Vector3 latestPinchPoint;
 
-        public ComputeShader? ComputeShader
-        {
-            get => computeShader;
-            set
-            {
-                if (value != null)
-                {
-                    computeShader = value;
-                }
-            }
-        }
+        public ComputeShader ComputeShader  => _computeShader ??= UnityEngine.Object.Instantiate(computeShader);
         
         public void Register(GraphicsBuffer vertexBuffer, GraphicsBuffer predictedPositionBuffer, Vector2 gridSize, Vector2Int gridCount)
         {
@@ -52,14 +44,14 @@ namespace TurningPage
             this.gridSize = gridSize;
             this.vertexBuffer = vertexBuffer;
 
-            kernel = computeShader.FindKernel("CSMain");
+            kernel = ComputeShader.FindKernel("CSMain");
 
-            computeShader.SetBuffer(kernel, "vertexBuffer", vertexBuffer);
-            computeShader.SetBuffer(kernel, "predictedPositionBuffer", predictedPositionBuffer);
+            ComputeShader.SetBuffer(kernel, "vertexBuffer", vertexBuffer);
+            ComputeShader.SetBuffer(kernel, "predictedPositionBuffer", predictedPositionBuffer);
 
-            computeShader.SetFloats("_GridSize", gridSize.x, gridSize.y);
-            computeShader.SetInts("_GridCount", gridCount.x, gridCount.y);
-            computeShader.SetBool("_IsPinched", false);
+            ComputeShader.SetFloats("_GridSize", gridSize.x, gridSize.y);
+            ComputeShader.SetInts("_GridCount", gridCount.x, gridCount.y);
+            ComputeShader.SetBool("_IsPinched", false);
         }
 
         public void SetPinchPoint(Vector2Int pinchedVertexId)
@@ -71,8 +63,8 @@ namespace TurningPage
                 return;
             }
 
-            computeShader.SetBool("_IsPinched", true);
-            computeShader.SetInts("_PinchId", pinchedVertexId.x, pinchedVertexId.y - 1);
+            ComputeShader.SetBool("_IsPinched", true);
+            ComputeShader.SetInts("_PinchId", pinchedVertexId.x, pinchedVertexId.y - 1);
 
             this.pinchedVertexId = pinchedVertexId;
             latestPinchPoint = vertex.position;
@@ -82,16 +74,16 @@ namespace TurningPage
         {
             pinchPoint = ConstrainPinchPointFromSeam(pinchPoint);
 
-            computeShader.SetFloats("_PinchPoint", pinchPoint.x, pinchPoint.y, pinchPoint.z);
-            computeShader.SetFloats("_PinchRight", pinchRight.x, pinchRight.y, pinchRight.z);
-            computeShader.SetFloats("_PinchForward", pinchForward.x, pinchForward.y, pinchForward.z);
+            ComputeShader.SetFloats("_PinchPoint", pinchPoint.x, pinchPoint.y, pinchPoint.z);
+            ComputeShader.SetFloats("_PinchRight", pinchRight.x, pinchRight.y, pinchRight.z);
+            ComputeShader.SetFloats("_PinchForward", pinchForward.x, pinchForward.y, pinchForward.z);
 
             latestPinchPoint = pinchPoint;
         }
 
         public void Release()
         {
-            computeShader.SetBool("_IsPinched", false);
+            ComputeShader.SetBool("_IsPinched", false);
         }
 
         public void Dispatch(float stepDeltaTime)
@@ -101,35 +93,35 @@ namespace TurningPage
 
             var stretchCompliance = 1 / (stretchStiffness * stepDeltaTime * stepDeltaTime);
             var stretchDampingEffect = stretchDampingFactor / (stretchStiffness * stepDeltaTime);
-            computeShader.SetFloat("_StretchCompliance", stretchCompliance);
-            computeShader.SetFloat("_StretchDampingEffect", stretchDampingEffect);
+            ComputeShader.SetFloat("_StretchCompliance", stretchCompliance);
+            ComputeShader.SetFloat("_StretchDampingEffect", stretchDampingEffect);
             
             var diagStretchCompliance = 1 / (diagStretchStiffness * stepDeltaTime * stepDeltaTime);
             var diagStretchDampingEffect = diagStretchDampingFactor / (diagStretchStiffness * stepDeltaTime);
-            computeShader.SetFloat("_DiagStretchCompliance", diagStretchCompliance);
-            computeShader.SetFloat("_DiagStretchDampingEffect", diagStretchDampingEffect);
+            ComputeShader.SetFloat("_DiagStretchCompliance", diagStretchCompliance);
+            ComputeShader.SetFloat("_DiagStretchDampingEffect", diagStretchDampingEffect);
             
             var bendHorizontalCompliance = 1 / (bendHorizontalStiffness * stepDeltaTime * stepDeltaTime);
             var bendHorizontalDampingEffect = bendDampingFactor / (bendHorizontalStiffness * stepDeltaTime);
             var bendVerticalCompliance = 1 / (bendVerticalStiffness * stepDeltaTime * stepDeltaTime);
             var bendVerticalDampingEffect = bendDampingFactor / (bendVerticalStiffness * stepDeltaTime);
-            computeShader.SetFloat("_BendHorizontalCompliance", bendHorizontalCompliance);
-            computeShader.SetFloat("_BendHorizontalDampingEffect", bendHorizontalDampingEffect);
-            computeShader.SetFloat("_BendVerticalCompliance", bendVerticalCompliance);
-            computeShader.SetFloat("_BendVerticalDampingEffect", bendVerticalDampingEffect);
+            ComputeShader.SetFloat("_BendHorizontalCompliance", bendHorizontalCompliance);
+            ComputeShader.SetFloat("_BendHorizontalDampingEffect", bendHorizontalDampingEffect);
+            ComputeShader.SetFloat("_BendVerticalCompliance", bendVerticalCompliance);
+            ComputeShader.SetFloat("_BendVerticalDampingEffect", bendVerticalDampingEffect);
             
             var pinchCompliance = 1 / (pinchStiffness * stepDeltaTime * stepDeltaTime);
             var pinchDampingEffect = pinchDampingFactor / (pinchStiffness * stepDeltaTime);
-            computeShader.SetFloat("_BendCompliance", pinchCompliance);
-            computeShader.SetFloat("_BendDampingEffect", pinchDampingEffect);
-            computeShader.SetFloat("_BendSORFactor", bendSorFactor);
+            ComputeShader.SetFloat("_BendCompliance", pinchCompliance);
+            ComputeShader.SetFloat("_BendDampingEffect", pinchDampingEffect);
+            ComputeShader.SetFloat("_BendSORFactor", bendSorFactor);
 
             var pinchRotationCompliance = 1 / (pinchRotationStiffness * stepDeltaTime * stepDeltaTime);
             var pinchRotationDampingEffect = pinchRotationDampingFactor / (pinchRotationStiffness * stepDeltaTime);
-            computeShader.SetFloat("_PinchRotationCompliance", pinchRotationCompliance);
-            computeShader.SetFloat("_PinchRotationDampingEffect", pinchRotationDampingEffect);
+            ComputeShader.SetFloat("_PinchRotationCompliance", pinchRotationCompliance);
+            ComputeShader.SetFloat("_PinchRotationDampingEffect", pinchRotationDampingEffect);
 
-            computeShader.Dispatch(kernel, threadGroupX, threadGroupY, 1);
+            ComputeShader.Dispatch(kernel, threadGroupX, threadGroupY, 1);
         }
 
         private Vector3 ConstrainPinchPointFromSeam(Vector3 pinchPoint)
