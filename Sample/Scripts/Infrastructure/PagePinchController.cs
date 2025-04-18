@@ -17,15 +17,12 @@ namespace TurningPage.Sample
 
         public PinchResult TryPinch(Vector3 pinchPoint, float maxPinchDistance, bool hasPreviousPage, bool hasNextPage)
         {
-            Debug.Log($"[Page Pinch] Check IsPinched: {IsPinched}");
             if (IsPinched)
                 return PinchResult.None;
 
-            Debug.Log($"[Page Pinch] Try Pinch nearest vertex: Point={pinchPoint}, Distance={maxPinchDistance}");
             if (TryPinchNearestVertex(pinchPoint, maxPinchDistance))
                 return PinchResult.CurrentPage;
 
-            Debug.Log($"[Page Pinch] Try Pinch nearest Next Page vertex ({hasNextPage}): Point={pinchPoint}, Distance={maxPinchDistance}");
             if (hasNextPage)
             {
                 var result = TryPinchNextPageVertex(pinchPoint, maxPinchDistance);
@@ -34,7 +31,6 @@ namespace TurningPage.Sample
                     return result.Value;
             }
 
-            Debug.Log($"[Page Pinch] Try Pinch nearest Previous Page vertex ({hasPreviousPage}): Point={pinchPoint}, Distance={maxPinchDistance}");
             if (hasPreviousPage)
             {
                 var result = TryPinchPreviousPageVertex(pinchPoint, maxPinchDistance);
@@ -43,7 +39,6 @@ namespace TurningPage.Sample
                     return result.Value;
             }
 
-            Debug.Log($"[Page Pinch] Failed.");
             return PinchResult.None;
         }
 
