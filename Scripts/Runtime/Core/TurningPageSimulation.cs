@@ -58,6 +58,7 @@ namespace TurningPage
         public Vector2 GridSize => new (meshSize.x / (gridCount.x - 1), meshSize.y / (gridCount.y - 1));
 
         public bool AreBuffersRegistered { get; private set; } = false;
+        public bool IsRunning { get; set; } = true;
 
         public void InitializePage(bool isPageFlipped)
         {
@@ -172,7 +173,7 @@ namespace TurningPage
 
         private void FixedUpdate()
         {
-            if (solveIter <= 0)
+            if (!IsRunning || solveIter <= 0)
             {
                 return;
             }
