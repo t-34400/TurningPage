@@ -1,6 +1,5 @@
 #nullable enable
 
-using TurningPage.Sample.UseCase;
 using UnityEngine;
 
 namespace TurningPage.Sample.Presentation
@@ -16,7 +15,10 @@ namespace TurningPage.Sample.Presentation
 
             if (!useCase.IsPinched)
             {
-                useCase.TryPinch(transform.position, maxPinchDistance);
+                if (useCase.TryPinch(transform.position, maxPinchDistance))
+                {
+                    useCase.UpdatePinchData(transform.position, transform.right, transform.forward);
+                }
             }
             else
             {

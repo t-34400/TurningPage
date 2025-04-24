@@ -43,20 +43,20 @@ namespace TurningPage.Sample.UseCase
                         if (!pageManager.TryTurningNextPage())
                         {
                             pagePinchController.Release();
-                            return true;
+                            return false;
                         }
 
-                        return false;
+                        return true;
                     }
                 case PinchResult.PreviousPage:
                     {
                         if (!pageManager.TryTurningPreviousPage())
                         {
                             pagePinchController.Release();
-                            return true;
+                            return false;
                         }
 
-                        return false;
+                        return true;
                     }
                 default:
                     return false;

@@ -1,7 +1,6 @@
 #nullable enable
 
 using System;
-using System.Linq;
 using TurningPage.Sample.Domain;
 using TurningPage.Sample.Presentation;
 using TurningPage.Sample.UseCase;
@@ -11,7 +10,6 @@ namespace TurningPage.Sample
 {
     public class PageSystemInstaller : MonoBehaviour
     {
-        [SerializeField] private TurningPageSimulation simulation = default!;
         [SerializeField] private ModelTextureManager modelTextureManager = default!;
         [SerializeField] private BasePinchDriver[] pinchDrivers = default!;
         [SerializeField] private PagePinchController pagePinchController = default!;

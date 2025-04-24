@@ -10,17 +10,12 @@ namespace TurningPage
     {
         [SerializeField] private Material frontMaterial = default!;
         [SerializeField] private Material backMaterial = default!;
-        [Header("Simulation Settings")]
-        [SerializeField] private int solveIter = 10;
-        [SerializeField] private float timestep = 0.05f;
         [Header("Grid")]
         [SerializeField] private Vector2 meshSize = Vector2.one;
         [SerializeField] private Vector2Int gridCount = new Vector2Int(16, 17);
         [SerializeField] private CornerUvs cornerUvs = new();
         [Header("Dispatchers")]
         [SerializeField] private InitializeVerticesDispatcher initializeVerticesDispatcher = default!;
-        [SerializeField] private PredictPositionsDispatcher predictPositionsDispatcher = default!;
-        [SerializeField] private SolveOnFineGridDispatcher solveOnFineGridDispatcher = default!;
         [SerializeField] private UpdateVerticesDispatcher updateVerticesDispatcher = default!;
         [SerializeField] private SearchNearestVertexDispatcher searchNearestVertexDispatcher = default!;
 
@@ -65,6 +60,7 @@ namespace TurningPage
                 return;
 
             initializeVerticesDispatcher.Dispatch(isPageFlipped);
+            updateVerticesDispatcher.ResetMeshCorners(isPageFlipped);
         }
 
         public bool TrySearchNearestVertex(Vector3 queryPoint, out NearestVertexSearchResult result)
@@ -99,7 +95,7 @@ namespace TurningPage
             return result;
         }
 
-        public void SetPinchPoint(Vector2Int vertexId) => solveOnFineGridDispatcher.SetPinchPoint(vertexId);
+        public void SetPinchPoint(Vector2Int vertexId) => updateVerticesDispatcher.SetPinchPoint(vertexId);
         public bool TrySetPinchPoint(Vector3 pinchPoint)
         {
             if (!TrySearchNearestVertex(pinchPoint, out var result))
@@ -117,13 +113,10 @@ namespace TurningPage
             var localPinchRight = transform.InverseTransformDirection(pinchRight);
             var localPinchForward = transform.InverseTransformDirection(pinchForward);
 
-            solveOnFineGridDispatcher.UpdatePinchData(localPinchPoint, localPinchRight, localPinchForward);
+            updateVerticesDispatcher.UpdatePinchData(localPinchPoint, localPinchRight, localPinchForward);
         }
 
-        public void Release()
-        {
-            solveOnFineGridDispatcher.Release();
-        }
+        public void Release() => updateVerticesDispatcher.Release();
 
         private void Start()
         {
@@ -160,9 +153,7 @@ namespace TurningPage
             var gridSize = new Vector2(dx, dz);
 
             initializeVerticesDispatcher.Register(vertexBuffer, velocityBuffer, gridSize, gridCount);
-            predictPositionsDispatcher.Register(vertexBuffer, velocityBuffer, predictedPositionBuffer, gridSize, gridCount);
-            solveOnFineGridDispatcher.Register(vertexBuffer, predictedPositionBuffer, gridSize, gridCount);
-            updateVerticesDispatcher.Register(vertexBuffer, velocityBuffer, predictedPositionBuffer, gridSize, gridCount);
+            updateVerticesDispatcher.Register(vertexBuffer, meshSize, gridCount);
             searchNearestVertexDispatcher.Register(vertexBuffer, gridCount, meshSize);
 
             AreBuffersRegistered = true;
@@ -172,19 +163,7 @@ namespace TurningPage
 
         private void FixedUpdate()
         {
-            if (solveIter <= 0)
-            {
-                return;
-            }
-
-            var stepDeltaTime = timestep / solveIter;
-
-            for (int iter = 0; iter < solveIter; ++iter)
-            {
-                predictPositionsDispatcher.Dispatch(transform, stepDeltaTime);
-                solveOnFineGridDispatcher.Dispatch(stepDeltaTime);
-                updateVerticesDispatcher.Dispatch(stepDeltaTime);                
-            }
+            updateVerticesDispatcher.Dispatch();                
         }
     
         private void OnDestroy()
@@ -298,20 +277,6 @@ namespace TurningPage
                 initializeVerticesDispatcher.ComputeShader = initializerShader;
 
                 updated = updated || initializerShader != null;
-            }
-            if (predictPositionsDispatcher.ComputeShader == null)
-            {
-                var predictorShader = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(Constants.PREDICTER_SHADER_FILENAME);
-                predictPositionsDispatcher.ComputeShader = predictorShader;
-
-                updated = updated || predictorShader != null;
-            }
-            if (solveOnFineGridDispatcher.ComputeShader == null)
-            {
-                var solverShader = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(Constants.SOLVER_SHADER_FILENAME);
-                solveOnFineGridDispatcher.ComputeShader = solverShader;
-
-                updated = updated || solverShader != null;
             }
             if (updateVerticesDispatcher.ComputeShader == null)
             {

@@ -1,6 +1,7 @@
 #pragma kernel CSMain
 
 #include_with_pragmas "vertex.hlsl"
+#include_with_pragmas "ApplyConstraints.hlsl"
 
 RWStructuredBuffer<Vertex> vertexBuffer;
 RWStructuredBuffer<float3> velocityBuffer;
@@ -18,11 +19,14 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     uint index = id.y * _GridCount.x + id.x;
     int gridDir = _IsPageFlipped ? -1 : 1;
 
-    vertexBuffer[index].position = float3(
+    float3 position = float3(
         id.x * _GridSize.x, 
         0, 
         gridDir * int(id.y) * _GridSize.y);
+
+    position = ApplyConstraints(id, position);
     
+    vertexBuffer[index].position = position;
     vertexBuffer[index].normal = float3(0, gridDir, 0);
 
     velocityBuffer[index] = float3(0, 0, 0);

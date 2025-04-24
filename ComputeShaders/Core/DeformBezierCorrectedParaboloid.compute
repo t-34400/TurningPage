@@ -1,0 +1,89 @@
+#pragma kernel CSMain
+
+#include_with_pragmas "vertex.hlsl"
+#include_with_pragmas "ApplyConstraints.hlsl"
+
+RWStructuredBuffer<Vertex> vertexBuffer;
+
+float2 _MeshSize;
+uint2 _GridCount;
+
+float3 _Corner1;
+float3 _Corner2;
+
+float _BezierHeight1;
+float _BezierHeight2;
+
+struct GridPoint
+{
+    float3 position;
+    float3 normal;
+};
+
+float3 Bezier(float t, float3 p0, float3 p1, float3 p2)
+{
+    return (1 - t) * (1 - t) * p0 + 2 * (1 - t) * t * p1 + t * t * p2;
+}
+
+float3 ComputeParaboloidNormal(float2 uv, float3 p0, float3 p1, float3 p2, float3 p3)
+{
+    float3 tangent = normalize((1 - uv.y) * (p1 - p0) + uv.y * (p3 - p2));
+    float3 bitangent = normalize((1 - uv.x) * (p2 - p0) + uv.x * (p3 - p1));
+    float3 normal = normalize(cross(tangent, bitangent));
+
+    return normal;
+}
+
+float3 ComputeBezierInterpolcation(float2 uv, float3 p0, float3 p1, float3 p2, float3 p3)
+{
+    float3 topInterp = lerp(p0, p1, uv.x);
+    float3 bottomInterp = lerp(p2, p3, uv.x);
+
+    float3 center = lerp(topInterp, bottomInterp, 0.5);
+    float3 centerNormal = ComputeParaboloidNormal(float2(0.5, 0.5), p0, p1, p2, p3);
+
+    float3 controlPoint = center + (_BezierHeight1 * (1 - uv.x) + _BezierHeight2 * uv.x) * centerNormal;
+
+    return Bezier(uv.y, topInterp, controlPoint, bottomInterp);
+}
+
+GridPoint ComputeBezierCorrectedParaboloidGridPoint(float2 uv, float3 p0, float3 p1, float3 p2, float3 p3)
+{
+    float3 topInterp = lerp(p0, p1, uv.x);
+    float3 bottomInterp = lerp(p2, p3, uv.x);
+
+    float3 position = ComputeBezierInterpolcation(uv, p0, p1, p2, p3);
+    float3 normal = ComputeParaboloidNormal(uv, p0, p1, p2, p3);
+
+    GridPoint gridPoint;
+    gridPoint.position = position;
+    gridPoint.normal = normal;
+
+    return gridPoint;
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    uint2 gridId = uint2(id.x, id.y + 1); // Skip the seam row (y = 0)
+
+    if (gridId.x >= _GridCount.x || gridId.y >= _GridCount.y)
+        return;
+
+    uint index = gridId.y * _GridCount.x + gridId.x;
+
+    float2 uv = float2(
+        (float)gridId.x / (_GridCount.x - 1), 
+        (float)gridId.y / (_GridCount.y - 1));
+    
+
+    float3 seam0 = float3(0, 0, 0);
+    float3 seam1 = float3(_MeshSize.x, 0, 0);
+    
+    GridPoint gridPoint = ComputeBezierCorrectedParaboloidGridPoint(uv, seam0, seam1, _Corner1, _Corner2);
+
+    float3 position = ApplyConstraints(id, gridPoint.position);
+
+    vertexBuffer[index].position = position;
+    vertexBuffer[index].normal = gridPoint.normal;
+}
