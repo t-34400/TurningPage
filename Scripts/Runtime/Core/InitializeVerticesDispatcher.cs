@@ -13,6 +13,8 @@ namespace TurningPage
         private Vector2Int gridCount;
         private int kernel;
 
+        private ComputeShader? shaderInstance;
+
         public ComputeShader? ComputeShader
         {
             get => computeShader;
@@ -24,18 +26,21 @@ namespace TurningPage
                 }
             }
         }
-
+        public ComputeShader ShaderInstance
+        {
+            get => shaderInstance ??= UnityEngine.Object.Instantiate(computeShader);
+        }
         public void Register(GraphicsBuffer vertexBuffer, GraphicsBuffer velocityBuffer, Vector2 gridSize, Vector2Int gridCount)
         {
             this.gridCount = gridCount;
 
-            kernel = computeShader.FindKernel("CSMain");
+            kernel = ShaderInstance.FindKernel("CSMain");
 
-            computeShader.SetBuffer(kernel, "vertexBuffer", vertexBuffer);
-            computeShader.SetBuffer(kernel, "velocityBuffer", velocityBuffer);
+            ShaderInstance.SetBuffer(kernel, "vertexBuffer", vertexBuffer);
+            ShaderInstance.SetBuffer(kernel, "velocityBuffer", velocityBuffer);
 
-            computeShader.SetFloats("_GridSize", gridSize.x, gridSize.y);
-            computeShader.SetInts("_GridCount", gridCount.x, gridCount.y);
+            ShaderInstance.SetFloats("_GridSize", gridSize.x, gridSize.y);
+            ShaderInstance.SetInts("_GridCount", gridCount.x, gridCount.y);
         }
 
         public void Dispatch(bool isPageFlipped)
@@ -43,9 +48,9 @@ namespace TurningPage
             var threadGroupX = Mathf.CeilToInt(gridCount.x / 8f);
             var threadGroupY = Mathf.CeilToInt(gridCount.y / 8f);
 
-            computeShader.SetBool("_IsPageFlipped", isPageFlipped);
+            ShaderInstance.SetBool("_IsPageFlipped", isPageFlipped);
 
-            computeShader.Dispatch(kernel, threadGroupX, threadGroupY, 1);
+            ShaderInstance.Dispatch(kernel, threadGroupX, threadGroupY, 1);
         }
     }
 }

@@ -14,6 +14,8 @@ namespace TurningPage
         private Vector2Int gridCount;
         private int kernel;
 
+        private ComputeShader? shaderInstance;
+
         public ComputeShader? ComputeShader
         {
             get => computeShader;
@@ -25,17 +27,21 @@ namespace TurningPage
                 }
             }
         }
+        public ComputeShader ShaderInstance
+        {
+            get => shaderInstance ??= UnityEngine.Object.Instantiate(computeShader);
+        }
 
         public void Register(GraphicsBuffer vertexBuffer, Vector2 meshSize, Vector2Int gridCount)
         {
             this.gridCount = gridCount;
 
-            kernel = computeShader.FindKernel("CSMain");
+            kernel = ShaderInstance.FindKernel("CSMain");
 
-            computeShader.SetBuffer(kernel, "vertexBuffer", vertexBuffer);
+            ShaderInstance.SetBuffer(kernel, "vertexBuffer", vertexBuffer);
 
-            computeShader.SetFloats("_MeshSize", meshSize.x, meshSize.y);
-            computeShader.SetInts("_GridCount", gridCount.x, gridCount.y);
+            ShaderInstance.SetFloats("_MeshSize", meshSize.x, meshSize.y);
+            ShaderInstance.SetInts("_GridCount", gridCount.x, gridCount.y);
 
             bezierCalculator.Initialize(meshSize);
         }
@@ -50,13 +56,13 @@ namespace TurningPage
             var corner1 = parameters.CornerPoint1;
             var corner2 = parameters.CornerPoint2;
 
-            computeShader.SetFloats("_Corner1", corner1.x, corner1.y, corner1.z);
-            computeShader.SetFloats("_Corner2", corner2.x, corner2.y, corner2.z);
+            ShaderInstance.SetFloats("_Corner1", corner1.x, corner1.y, corner1.z);
+            ShaderInstance.SetFloats("_Corner2", corner2.x, corner2.y, corner2.z);
 
-            computeShader.SetFloat("_BezierHeight1", parameters.BezierHeight1);
-            computeShader.SetFloat("_BezierHeight2", parameters.BezierHeight2);
+            ShaderInstance.SetFloat("_BezierHeight1", parameters.BezierHeight1);
+            ShaderInstance.SetFloat("_BezierHeight2", parameters.BezierHeight2);
 
-            computeShader.Dispatch(kernel, threadGroupX, threadGroupY, 1);
+            ShaderInstance.Dispatch(kernel, threadGroupX, threadGroupY, 1);
         }
 
         public void ResetMeshCorners(bool isPageFlipped) => bezierCalculator.ResetMeshCorners(isPageFlipped);
