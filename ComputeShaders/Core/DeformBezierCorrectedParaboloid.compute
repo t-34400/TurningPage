@@ -29,7 +29,7 @@ float3 ComputeParaboloidNormal(float2 uv, float3 p0, float3 p1, float3 p2, float
 {
     float3 tangent = normalize((1 - uv.y) * (p1 - p0) + uv.y * (p3 - p2));
     float3 bitangent = normalize((1 - uv.x) * (p2 - p0) + uv.x * (p3 - p1));
-    float3 normal = normalize(cross(tangent, bitangent));
+    float3 normal = normalize(cross(bitangent, tangent));
 
     return normal;
 }
@@ -42,7 +42,7 @@ float3 ComputeBezierInterpolcation(float2 uv, float3 p0, float3 p1, float3 p2, f
     float3 center = lerp(topInterp, bottomInterp, 0.5);
     float3 centerNormal = ComputeParaboloidNormal(float2(0.5, 0.5), p0, p1, p2, p3);
 
-    float3 controlPoint = center + (_BezierHeight1 * (1 - uv.x) + _BezierHeight2 * uv.x) * centerNormal;
+    float3 controlPoint = center - (_BezierHeight1 * (1 - uv.x) + _BezierHeight2 * uv.x) * centerNormal;
 
     return Bezier(uv.y, topInterp, controlPoint, bottomInterp);
 }

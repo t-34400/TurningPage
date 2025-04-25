@@ -61,11 +61,15 @@ namespace TurningPage
 
         private BezierCorrectedParaboloidParameters UpdatePinchedParameters()
         {
-            var targetCorner1 = PinchPoint + PinchRight * (-MeshSize.x * PinchPointUv.x) + PinchForward * (MeshSize.y * (1 - PinchPointUv.y));
-            var targetCorner2 = PinchPoint + PinchRight * (MeshSize.x * (1 - PinchPointUv.x)) + PinchForward * (MeshSize.y * (1 - PinchPointUv.y));
+            // TODO
+            // var targetCorner1 = PinchPoint + PinchRight * (-MeshSize.x * PinchPointUv.x) + PinchForward * (MeshSize.y * (1 - PinchPointUv.y));
+            // var targetCorner2 = PinchPoint + PinchRight * (MeshSize.x * (1 - PinchPointUv.x)) + PinchForward * (MeshSize.y * (1 - PinchPointUv.y));
+            var targetCorner1 = PinchPoint + Vector3.right * (-MeshSize.x * PinchPointUv.x) + PinchForward * (MeshSize.y * (1 - PinchPointUv.y));
+            var targetCorner2 = PinchPoint + Vector3.right * (MeshSize.x * (1 - PinchPointUv.x)) + PinchForward * (MeshSize.y * (1 - PinchPointUv.y));
 
             if (!ConstrainToSeamEnd(targetCorner1, targetCorner2, out targetCorner1, out targetCorner2))
             {
+                Debug.LogWarning($"Failed to constrain to seam ends: {targetCorner1}, {targetCorner2}");
                 return LatestParameters;
             }
 
@@ -178,6 +182,7 @@ namespace TurningPage
         bool ConstrainToSeamEnd(Vector3 corner1, Vector3 corner2, out Vector3 constrainedCorner1, out Vector3 constrainedCorner2)
         {
             const int MAX_ITER = 20;
+            const float OFFSET = 0.01f;
 
             constrainedCorner1 = corner1;
             constrainedCorner2 = corner2;
@@ -188,13 +193,12 @@ namespace TurningPage
             var currentDistance1 = Vector3.Distance(seamEnd1, constrainedCorner1);
             var currentDistance2 = Vector3.Distance(seamEnd2, constrainedCorner2);
 
-            if (currentDistance1 <= MeshSize.y && currentDistance2 <= MeshSize.y)
+            if (currentDistance1 <= MeshSize.y + OFFSET && currentDistance2 <= MeshSize.y + OFFSET)
                 return true;
 
             for (var i = 0; i < MAX_ITER; ++i)
             {
                 constrainedCorner1 = ConstrainDistance(constrainedCorner1, seamEnd1, MeshSize.y, out var _);
-                constrainedCorner2 = ConstrainDistance(constrainedCorner2, seamEnd2, MeshSize.y, out var _);
 
                 var delta = constrainedCorner2 - constrainedCorner1;
                 var deltaMagnitude = delta.magnitude;
@@ -202,10 +206,18 @@ namespace TurningPage
                 constrainedCorner1 += delta.normalized * (MeshSize.x - deltaMagnitude) / 2;
                 constrainedCorner2 -= delta.normalized * (MeshSize.x - deltaMagnitude) / 2;
 
+                constrainedCorner2 = ConstrainDistance(constrainedCorner2, seamEnd2, MeshSize.y, out var _);
+
+                delta = constrainedCorner2 - constrainedCorner1;
+                deltaMagnitude = delta.magnitude;
+
+                constrainedCorner1 += delta.normalized * (MeshSize.x - deltaMagnitude) / 2;
+                constrainedCorner2 -= delta.normalized * (MeshSize.x - deltaMagnitude) / 2;
+
                 currentDistance1 = Vector3.Distance(seamEnd1, constrainedCorner1);
                 currentDistance2 = Vector3.Distance(seamEnd2, constrainedCorner2);
 
-                if (currentDistance1 <= MeshSize.y && currentDistance2 <= MeshSize.y)
+                if (currentDistance1 <= MeshSize.y + OFFSET && currentDistance2 <= MeshSize.y + OFFSET)
                     return true;
             }
 
