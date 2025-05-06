@@ -8,9 +8,11 @@ namespace TurningPage
     [Serializable]
     class SearchNearestVertexDispatcher
     {
-        [SerializeField] private ComputeShader computeShader = default!;
+        [SerializeField] internal ComputeShader computeShader = default!;
         [Min(1)]
         [SerializeField] private int checkedVerticesPerThread = 4;
+
+        private ComputeShader? _computeShader;
 
         private int checkedVerticesPerGroup;
         private Vector2Int gridCount;
@@ -23,17 +25,7 @@ namespace TurningPage
         private GraphicsBuffer? resultSqrDistanceBuffer = null;
         private GraphicsBuffer? resultIndexBuffer = null;
 
-        public ComputeShader? ComputeShader
-        {
-            get => computeShader;
-            set
-            {
-                if (value != null)
-                {
-                    computeShader = value;
-                }
-            }
-        }
+        public ComputeShader ComputeShader  => _computeShader ??= UnityEngine.Object.Instantiate(computeShader);
 
         public void Register(GraphicsBuffer vertexBuffer, Vector2Int gridCount, Vector2 meshSize)
         {
@@ -50,20 +42,20 @@ namespace TurningPage
             resultSqrDistanceBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, resultBufferCount, sizeof(float));
             resultIndexBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, resultBufferCount, sizeof(int));
 
-            initialAggregationKernel = computeShader.FindKernel("InitialAggregationKernel");
-            computeShader.SetBuffer(initialAggregationKernel, "vertexBuffer", vertexBuffer);
-            computeShader.SetBuffer(initialAggregationKernel, "resultSqrDistanceBuffer", resultSqrDistanceBuffer);
-            computeShader.SetBuffer(initialAggregationKernel, "resultIndexBuffer", resultIndexBuffer);
+            initialAggregationKernel = ComputeShader.FindKernel("InitialAggregationKernel");
+            ComputeShader.SetBuffer(initialAggregationKernel, "vertexBuffer", vertexBuffer);
+            ComputeShader.SetBuffer(initialAggregationKernel, "resultSqrDistanceBuffer", resultSqrDistanceBuffer);
+            ComputeShader.SetBuffer(initialAggregationKernel, "resultIndexBuffer", resultIndexBuffer);
 
-            finalAggregationKernel = computeShader.FindKernel("FinalAggregationKernel");
-            computeShader.SetBuffer(finalAggregationKernel, "vertexBuffer", vertexBuffer);
-            computeShader.SetBuffer(finalAggregationKernel, "resultSqrDistanceBuffer", resultSqrDistanceBuffer);
-            computeShader.SetBuffer(finalAggregationKernel, "resultIndexBuffer", resultIndexBuffer);
+            finalAggregationKernel = ComputeShader.FindKernel("FinalAggregationKernel");
+            ComputeShader.SetBuffer(finalAggregationKernel, "vertexBuffer", vertexBuffer);
+            ComputeShader.SetBuffer(finalAggregationKernel, "resultSqrDistanceBuffer", resultSqrDistanceBuffer);
+            ComputeShader.SetBuffer(finalAggregationKernel, "resultIndexBuffer", resultIndexBuffer);
 
-            computeShader.SetInts("_GridCount", gridCount.x, gridCount.y);
-            computeShader.SetInt("_VertexCount", vertexCount);
-            computeShader.SetInt("_VerticesPerThread", checkedVerticesPerThread);
-            computeShader.SetInt("_ResultBufferCount", resultBufferCount);
+            ComputeShader.SetInts("_GridCount", gridCount.x, gridCount.y);
+            ComputeShader.SetInt("_VertexCount", vertexCount);
+            ComputeShader.SetInt("_VerticesPerThread", checkedVerticesPerThread);
+            ComputeShader.SetInt("_ResultBufferCount", resultBufferCount);
         }
 
         public NearestVertexSearchResult? SearchNearestVertex(Vector3 queryPoint)
@@ -77,18 +69,18 @@ namespace TurningPage
             var vertexCount = gridCount.x * (gridCount.y - 1);
             int resultBufferCount = Mathf.CeilToInt((float) vertexCount / checkedVerticesPerGroup);
 
-            computeShader.SetFloats("_QueryPoint", queryPoint.x, queryPoint.y, queryPoint.z);
+            ComputeShader.SetFloats("_QueryPoint", queryPoint.x, queryPoint.y, queryPoint.z);
 
-            computeShader.Dispatch(initialAggregationKernel, resultBufferCount, 1, 1);
+            ComputeShader.Dispatch(initialAggregationKernel, resultBufferCount, 1, 1);
 
             var interval = 1;
             var threadCount = Mathf.CeilToInt((float)resultBufferCount / checkedVerticesPerGroup);
             while (threadCount > 1)
             {
-                computeShader.SetInt("_FinalAggregationInterval", interval);
-                computeShader.SetInt("_FinalAggregationThreadCount", threadCount);                
+                ComputeShader.SetInt("_FinalAggregationInterval", interval);
+                ComputeShader.SetInt("_FinalAggregationThreadCount", threadCount);                
 
-                computeShader.Dispatch(finalAggregationKernel, resultBufferCount, 1, 1);
+                ComputeShader.Dispatch(finalAggregationKernel, resultBufferCount, 1, 1);
 
                 interval *= 64 * checkedVerticesPerGroup;
                 threadCount = Mathf.CeilToInt((float)threadCount / checkedVerticesPerGroup);

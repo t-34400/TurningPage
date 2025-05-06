@@ -8,7 +8,9 @@ namespace TurningPage
     [Serializable]
     public class InitializeVerticesDispatcher
     {
-        [SerializeField] private ComputeShader computeShader = default!;
+        [SerializeField] internal ComputeShader computeShader = default!;
+
+        private ComputeShader? _computeShader;
 
         private Vector2Int gridCount;
         private int kernel;
@@ -52,5 +54,9 @@ namespace TurningPage
 
             ShaderInstance.Dispatch(kernel, threadGroupX, threadGroupY, 1);
         }
+
+# if UNITY_EDITOR
+        public void SetComputeShader_Editor(ComputeShader computeShader) => this.computeShader = computeShader;
+# endif
     }
 }

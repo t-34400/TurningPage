@@ -276,10 +276,10 @@ namespace TurningPage
         {
             bool updated = false;
 
-            if (initializeVerticesDispatcher.ComputeShader == null)
+            if (initializeVerticesDispatcher.computeShader == null)
             {
                 var initializerShader = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(Constants.INITIALIZER_SHADER_FILENAME);
-                initializeVerticesDispatcher.ComputeShader = initializerShader;
+                initializeVerticesDispatcher.computeShader = initializerShader;
 
                 updated = updated || initializerShader != null;
             }
@@ -290,10 +290,10 @@ namespace TurningPage
 
                 updated = updated || updaterShader != null;
             }
-            if (searchNearestVertexDispatcher.ComputeShader == null)
+            if (searchNearestVertexDispatcher.computeShader == null)
             {
                 var updaterShader = UnityEditor.AssetDatabase.LoadAssetAtPath<ComputeShader>(Constants.VERTEX_SEARCHER_SHADER_FILENAME);
-                searchNearestVertexDispatcher.ComputeShader = updaterShader;
+                searchNearestVertexDispatcher.computeShader = updaterShader;
 
                 updated = updated || updaterShader != null;
             }
@@ -304,7 +304,7 @@ namespace TurningPage
             }
         }
 
-        private void OnDrawGizmos()
+        private void OnDrawGizmosSelected()
         {
             const int NUM_SEGMENTS = 16;
 

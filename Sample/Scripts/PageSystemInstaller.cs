@@ -67,8 +67,6 @@ namespace TurningPage.Sample
 
             InvokeTurningPageUpdated(0);
 
-            Debug.Log($"Page Texture Set: Texture Count = {pageTextures.Length}, Turnable Pages: {totalTurnablePages}", this);
-
             return true;
         }
 

@@ -88,7 +88,7 @@ namespace TurningPage.Editor
                 return false;
             }
 
-            initializeVerticesDispatcher.ComputeShader = initializerShader;
+            initializeVerticesDispatcher.SetComputeShader_Editor(initializerShader);
 
             mesh = simulation.GenerateGridMesh();
 
