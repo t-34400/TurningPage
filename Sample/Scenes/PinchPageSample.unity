@@ -642,10 +642,25 @@ MonoBehaviour:
     computeShader: {fileID: 7200000, guid: 685f36dc647a09544b07650443bea2a9, type: 3}
   updateVerticesDispatcher:
     computeShader: {fileID: 7200000, guid: c242984bb6c5d314b922a7c54762a266, type: 3}
-    bezierCalculator:
-      maxCornerVelocity: 5
-      maxHeightVelocity: 10
-      unpinchedCornerVelocity: 1
+    parameterManager:
+      unflippedPageParams:
+        apex: -1
+        angle: 90
+        axisRoll: 180
+      flippedPageParams:
+        apex: -1
+        angle: 90
+        axisRoll: 0
+      optimizer:
+        learningRate: 0.01
+        diffStep: 0.001
+        bendCompliance: 4
+        bendCenterCompliance: 10
+        positionWeight: 1
+        normalWeight: 0.2
+        apexWeight: 0.4
+        angleWeight: 0.2
+        axisRollWeight: 0.2
   searchNearestVertexDispatcher:
     computeShader: {fileID: 7200000, guid: 239d57cfbef1f094caabd898523d0e44, type: 3}
     checkedVerticesPerThread: 4

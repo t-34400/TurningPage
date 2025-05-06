@@ -1,0 +1,86 @@
+#pragma kernel CSMain
+
+#include_with_pragmas "vertex.hlsl"
+#include_with_pragmas "ApplyConstraints.hlsl"
+
+static const float PI = 3.14159265f;
+static const float HALF_PI = 1.57079632f;
+
+RWStructuredBuffer<Vertex> vertexBuffer;
+
+float2 _MeshSize;
+uint2 _GridCount;
+
+float _ConeApex;
+float _ConeAngle;
+float3 _ConeAxis;
+
+struct GridPoint
+{
+    float3 position;
+    float3 normal;
+};
+
+float3 RotateAroundAxis(float3 position, float3 axis, float angle)
+{
+    float cosA = cos(angle);
+    float sinA = sin(angle);
+    return position * cosA +
+           cross(axis, position) * sinA +
+           axis * dot(axis, position) * (1.0 - cosA);
+}
+
+GridPoint ComputeGridPoint(float2 uv)
+{
+    float polarX = uv.x * _MeshSize.x - _ConeApex;
+    float polarY = uv.y * _MeshSize.y;
+
+    float r2 = polarX * polarX + polarY * polarY;
+    float r = sqrt(max(r2, 1e-6));
+
+    float safePolarX = max(abs(polarX), 1e-6);
+    float theta = atan2(polarY, safePolarX);
+
+    float safeSinConeAngle = max(abs(sin(_ConeAngle)), 1e-6);
+    float angleAroundAxis = theta / safeSinConeAngle;
+
+    float3 pointOnCone = RotateAroundAxis(float3(r, 0, 0), _ConeAxis, angleAroundAxis);
+    pointOnCone.x *= sign(polarX);
+
+    float3 position = pointOnCone + float3(_ConeApex, 0, 0);
+
+    float3 tangent = normalize(cross(_ConeAxis, pointOnCone));
+    float3 normal = normalize(cross(tangent, pointOnCone));
+
+    float offset = uv.y * 1e-2;
+    position += normal * offset; // Add small offset to avoid z-fighting
+
+    GridPoint gridPoint;
+    gridPoint.position = position;
+    gridPoint.normal = normal;
+
+    return gridPoint;
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    uint2 gridId = uint2(id.x, id.y + 1); // Skip the seam row (y = 0)
+
+    if (gridId.x >= _GridCount.x || gridId.y >= _GridCount.y)
+        return;
+
+    uint index = gridId.y * _GridCount.x + gridId.x;
+
+    float2 uv = float2(
+        (float)gridId.x / (_GridCount.x - 1), 
+        (float)gridId.y / (_GridCount.y - 1));
+
+    GridPoint gridPoint = ComputeGridPoint(uv);
+
+    // float3 position = ApplyConstraints(id, gridPoint.position);
+    float3 position = gridPoint.position;
+
+    vertexBuffer[index].position = position;
+    vertexBuffer[index].normal = gridPoint.normal;
+}

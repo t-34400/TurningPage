@@ -9,7 +9,7 @@ namespace TurningPage
     class UpdateVerticesDispatcher
     {
         [SerializeField] private ComputeShader computeShader = default!;
-        [SerializeField] private BezierCorrectedParaboloidCornerCalculator bezierCalculator = default!;
+        [SerializeField] private ConicalSurfaceParameterManager parameterManager = default!;
 
         private Vector2Int gridCount;
         private int kernel;
@@ -32,6 +32,8 @@ namespace TurningPage
             get => shaderInstance ??= UnityEngine.Object.Instantiate(computeShader);
         }
 
+        public ConicalSurfaceParameters LatestParameters => parameterManager.LatestParameters;
+
         public void Register(GraphicsBuffer vertexBuffer, Vector2 meshSize, Vector2Int gridCount)
         {
             this.gridCount = gridCount;
@@ -43,7 +45,7 @@ namespace TurningPage
             ShaderInstance.SetFloats("_MeshSize", meshSize.x, meshSize.y);
             ShaderInstance.SetInts("_GridCount", gridCount.x, gridCount.y);
 
-            bezierCalculator.Initialize(meshSize);
+            parameterManager.Initialize(meshSize);
         }
 
         public void Dispatch()
@@ -51,21 +53,18 @@ namespace TurningPage
             var threadGroupX = Mathf.CeilToInt(gridCount.x / 8f);
             var threadGroupY = Mathf.CeilToInt((gridCount.y - 1) / 8f);
 
-            var parameters = bezierCalculator.UpdateBezierCorrectedParaboloidParameters();
+            var parameters = parameterManager.UpdateBezierCorrectedParaboloidParameters();
+            var angleRad = parameters.Angle * Mathf.Deg2Rad;
+            var axis = parameters.Axis;
 
-            var corner1 = parameters.CornerPoint1;
-            var corner2 = parameters.CornerPoint2;
-
-            ShaderInstance.SetFloats("_Corner1", corner1.x, corner1.y, corner1.z);
-            ShaderInstance.SetFloats("_Corner2", corner2.x, corner2.y, corner2.z);
-
-            ShaderInstance.SetFloat("_BezierHeight1", parameters.BezierHeight1);
-            ShaderInstance.SetFloat("_BezierHeight2", parameters.BezierHeight2);
+            ShaderInstance.SetFloat("_ConeApex", parameters.Apex);
+            ShaderInstance.SetFloat("_ConeAngle", angleRad);
+            ShaderInstance.SetFloats("_ConeAxis", axis.x, axis.y, axis.z);
 
             ShaderInstance.Dispatch(kernel, threadGroupX, threadGroupY, 1);
         }
 
-        public void ResetMeshCorners(bool isPageFlipped) => bezierCalculator.ResetMeshCorners(isPageFlipped);
+        public void ResetMeshCorners(bool isPageFlipped) => parameterManager.ResetMeshCorners(isPageFlipped);
 
         public void SetPinchPoint(Vector2Int vertexId)
         {
@@ -74,20 +73,20 @@ namespace TurningPage
                 (float)vertexId.y / gridCount.y
             );
 
-            bezierCalculator.PinchPointUv = uv;
-            bezierCalculator.IsPinched = true;
+            parameterManager.PinchPointUv = uv;
+            parameterManager.IsPinched = true;
         }
 
         public void UpdatePinchData(Vector3 pinchPoint, Vector3 pinchRight, Vector3 pinchForward)
         {
-            bezierCalculator.PinchPoint = pinchPoint;
-            bezierCalculator.PinchRight = pinchRight;
-            bezierCalculator.PinchForward = pinchForward;
+            parameterManager.PinchPoint = pinchPoint;
+            parameterManager.PinchRight = pinchRight;
+            parameterManager.PinchForward = pinchForward;
         }
 
         public void Release()
         {
-            bezierCalculator.IsPinched = false;
+            parameterManager.IsPinched = false;
         }
     }
 }

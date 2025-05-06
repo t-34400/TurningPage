@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -171,6 +172,7 @@ namespace TurningPage
     
         private void OnDestroy()
         {
+            vertexBuffer?.Dispose();
             velocityBuffer?.Dispose();
             predictedPositionBuffer?.Dispose();
             searchNearestVertexDispatcher?.Dispose();
@@ -300,6 +302,56 @@ namespace TurningPage
             {
                 UnityEditor.EditorUtility.SetDirty(this);
             }
+        }
+
+        private void OnDrawGizmos()
+        {
+            const int NUM_SEGMENTS = 16;
+
+            var originalMatrix = Gizmos.matrix;
+            var originalColor = Gizmos.color;
+
+            Gizmos.matrix = transform.localToWorldMatrix;
+
+            var parameters = updateVerticesDispatcher.LatestParameters;
+
+            var apex = parameters.Apex;
+            var angle = parameters.Angle;
+            var axisRoll = parameters.AxisRoll;
+
+            var axis = parameters.Axis;
+            var apexPoint = apex * Vector3.right;
+
+            Gizmos.color = Color.red;
+            Gizmos.DrawRay(apexPoint, axis);
+
+            var azimuthRot = Quaternion.Euler(axisRoll, 0, 0) * Quaternion.Euler(0, 0, angle);
+            var vertices = Enumerable.Range(0, NUM_SEGMENTS)
+                .Select(i => i * 2 * Mathf.PI / NUM_SEGMENTS)
+                .Select(theta => 
+                    {
+                        var angleRad = angle * Mathf.Deg2Rad;
+                        var sinAngle = Mathf.Sin(angleRad);
+
+                        return new Vector3(
+                            Mathf.Cos(angleRad),
+                            sinAngle * Mathf.Cos(theta),
+                            sinAngle * Mathf.Sin(theta)
+                        );
+                    })
+                .Select(v => azimuthRot * v + apexPoint)
+                .ToArray();
+
+            Gizmos.color = Color.cyan;
+            for (int i = 0; i < vertices.Length; i++)
+            {
+                var nextIndex = (i + 1) % vertices.Length;
+                Gizmos.DrawLine(vertices[i], apexPoint);
+                Gizmos.DrawLine(vertices[i], vertices[nextIndex]);
+            }
+
+            Gizmos.matrix = originalMatrix;
+            Gizmos.color = originalColor;
         }
 #endif
 

@@ -101,6 +101,8 @@ Material:
     - _Glossiness: 0
     - _GlossyReflections: 0
     - _InvertNormals: 1
+    - _InvertUs: 1
+    - _InvertVs: 1
     - _Metallic: 0
     - _OcclusionStrength: 1
     - _Parallax: 0.005
