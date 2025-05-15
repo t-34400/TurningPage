@@ -21,6 +21,9 @@ namespace TurningPage
                 axisRoll: 0f
             );
         [SerializeField] private ConicalSurfaceParameterOptimizer optimizer = default!;
+        [SerializeField] private int stepCount = 5;
+
+        private readonly float[] paramVelocities = new float[ConicalSurfaceParameters.PARAMETER_COUNT];
 
         public bool IsPinched { get; set; } = false;
         public Vector2 PinchPointUv { get; set; } = Vector2.zero;
@@ -41,39 +44,60 @@ namespace TurningPage
             MeshSize = meshSize;
 
             LatestParameters = unflippedPageParams;
+            for (int i = 0; i < paramVelocities.Length; ++i)
+            {
+                paramVelocities[i] = 0;
+            }
         }
 
         public void ResetMeshCorners(bool isPageFlipped)
         {
             LatestParameters = isPageFlipped ? flippedPageParams : unflippedPageParams;
+            for (int i = 0; i < paramVelocities.Length; ++i)
+            {
+                paramVelocities[i] = 0;
+            }
         }
 
-        public ConicalSurfaceParameters UpdateBezierCorrectedParaboloidParameters()
+        public ConicalSurfaceParameters UpdateConicalSurfaceParameters(float totalTimeStap)
         {
+            if (stepCount < 1)
+                return LatestParameters;
+
+            var timeStap = totalTimeStap / stepCount;
+
             if (IsPinched)
             {
-                LatestParameters = UpdatePinchedParameters();
+                for (int i = 0; i < stepCount; i++)
+                {
+                    LatestParameters = UpdatePinchedParameters(timeStap);
+                }
             }
             else
             {
-                LatestParameters = UpdateUnpinchedParameters();
+                for (int i = 0; i < stepCount; i++)
+                {
+                    LatestParameters = UpdateUnpinchedParameters(timeStap);
+                }
             }
 
             return LatestParameters;
         }
 
-        private ConicalSurfaceParameters UpdatePinchedParameters()
+        private ConicalSurfaceParameters UpdatePinchedParameters(float timeStap)
         {
             return optimizer.UpdatePinchedPageParameters(
                 LatestParameters,
                 MeshSize,
                 PinchPointUv,
                 PinchPoint,
-                Vector3.Cross(PinchRight, PinchForward).normalized
+                Vector3.Cross(PinchRight, PinchForward).normalized,
+                paramVelocities,
+                timeStap
             );
         }
 
-        private ConicalSurfaceParameters UpdateUnpinchedParameters()
+        private ConicalSurfaceParameters UpdateUnpinchedParameters(float timeStap)
         {
             var latestAxisRoll = LatestParameters.AxisRoll;
 
@@ -84,7 +108,9 @@ namespace TurningPage
             return optimizer.UpdateUnpinchedPageParameters(
                 LatestParameters,
                 targetParams,
-                MeshSize
+                MeshSize,
+                paramVelocities,
+                timeStap
             );
         }
     }

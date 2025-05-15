@@ -10,6 +10,9 @@ namespace TurningPage
     {
         private const float APEX_SATURATION_EXTENT = 2f;
 
+        private const float MAX_VELOCITY = 3f;
+        private const float VELOCITY_DAMPING_RATE = 0.75f;
+
         [SerializeField] private float learningRate = 0.01f;
         [SerializeField] private float diffStep = 1e-3f;
         [Min(1e-3f)]
@@ -29,13 +32,15 @@ namespace TurningPage
             Vector2 meshSize,
             Vector2 uv,
             Vector3 pinchPoint,
-            Vector3 pinchNormal)
+            Vector3 pinchNormal,
+            float[] paramVelocities,
+            float timeStap)
         {
             var apexPositiveLimit = meshSize.x;
 
             float CalculateLoss(float[] paramsArray)
             {
-                if (paramsArray.Length < 3)
+                if (paramsArray.Length < ConicalSurfaceParameters.PARAMETER_COUNT)
                 {
                     Debug.LogError("Invalid parameters length.");
                     return 1e5f;
@@ -55,12 +60,14 @@ namespace TurningPage
 
             var updated = UpdateParameters(
                 parameters,
+                paramVelocities,
                 CalculateLoss,
                 apexPositiveLimit,
                 bendCompliance,
                 bendCenterCompliance,
                 diffStep,
-                learningRate
+                learningRate,
+                timeStap
             );
 
             if (float.IsNaN(updated.Apex) || float.IsInfinity(updated.Apex)
@@ -77,7 +84,9 @@ namespace TurningPage
         public ConicalSurfaceParameters UpdateUnpinchedPageParameters(
             ConicalSurfaceParameters parameters,
             ConicalSurfaceParameters targetParameters,
-            Vector2 meshSize)
+            Vector2 meshSize,
+            float[] paramVelocities,
+            float timeStap)
         {
             if (parameters.ApploximatelyEqual(targetParameters))
                 return targetParameters;
@@ -88,7 +97,7 @@ namespace TurningPage
 
             float CalculateLoss(float[] paramsArray)
             {
-                if (paramsArray.Length < 3 || targetValues.Length < 3)
+                if (paramsArray.Length < ConicalSurfaceParameters.PARAMETER_COUNT || targetValues.Length < ConicalSurfaceParameters.PARAMETER_COUNT)
                 {
                     Debug.LogError("Invalid parameters length.");
                     return 1e5f;
@@ -108,12 +117,14 @@ namespace TurningPage
 
             var updated = UpdateParameters(
                 parameters,
+                paramVelocities,
                 CalculateLoss,
                 apexPositiveLimit,
                 bendCompliance,
                 bendCenterCompliance,
                 diffStep,
-                learningRate
+                learningRate,
+                timeStap
             );
 
             if (float.IsNaN(updated.Apex) || float.IsInfinity(updated.Apex)
@@ -157,23 +168,38 @@ namespace TurningPage
         
         public static ConicalSurfaceParameters UpdateParameters(
             ConicalSurfaceParameters parameters,
+            float[] paramVelocities,
             Func<float[], float> lossFunc,
             float apexPositiveLimit,
             float bendCompliance,
             float bendCenterCompliance,
             float diffStep,
-            float learningRate)
+            float learningRate,
+            float timeStap)
         {
+            if (paramVelocities.Length < ConicalSurfaceParameters.PARAMETER_COUNT)
+            {
+                Debug.LogError("Invalid updated parameter velocity length.");
+                return parameters;
+            }
+
             var initialParameters = ConvertParamsToOptimizedValue(parameters, apexPositiveLimit, bendCompliance, bendCenterCompliance);
 
+            var predicted = new float[3];
+            for (int i = 0; i < ConicalSurfaceParameters.PARAMETER_COUNT; ++i)
+            {
+                predicted[i] = initialParameters[i] + paramVelocities[i] * timeStap * Mathf.Exp(-timeStap * VELOCITY_DAMPING_RATE);
+            }
+            
             var optimized = ParameterOptimizer.OptimizeStep(
-                initialParameters,
+                predicted,
                 lossFunc,
                 diffStep,
                 learningRate
             );
 
-            if (optimized.Length < 3)
+            if (initialParameters.Length < ConicalSurfaceParameters.PARAMETER_COUNT
+                || optimized.Length < ConicalSurfaceParameters.PARAMETER_COUNT)
             {
                 Debug.LogError("Invalid updated parameters length.");
                 return parameters;
@@ -186,6 +212,14 @@ namespace TurningPage
                     Debug.LogWarning($"Invalid updated parameter {i}: {optimized[i]}.");
                     return parameters;
                 }
+            }
+
+            for (int i = 0; i < ConicalSurfaceParameters.PARAMETER_COUNT; ++i)
+            {
+                var velocity = (optimized[i] - initialParameters[i]) / timeStap;
+                velocity = Mathf.Max(-MAX_VELOCITY, Mathf.Min(MAX_VELOCITY, velocity));
+
+                paramVelocities[i] = velocity;
             }
 
             return ConvertOptimzedValueToParams(optimized, apexPositiveLimit, bendCompliance, bendCenterCompliance);
@@ -204,7 +238,7 @@ namespace TurningPage
                 APEX_SATURATION_EXTENT
             ) / bendCenterCompliance;
             var angle = ATanh((parameters.Angle - 30) / 60f - 1f) / bendCompliance;
-            var axisRoll = parameters.AxisRoll / 180f;
+            var axisRoll = parameters.AxisRoll / 90f;
 
             return new float[] { apex, angle, axisRoll };
         }
@@ -215,7 +249,7 @@ namespace TurningPage
             float bendCompliance,
             float bendCenterCompliance)
         {
-            if (optimizedValues.Length < 3)
+            if (optimizedValues.Length < ConicalSurfaceParameters.PARAMETER_COUNT)
             {
                 Debug.LogError("Invalid parameters length.");
                 return new ConicalSurfaceParameters(-1f);
@@ -228,7 +262,7 @@ namespace TurningPage
                 APEX_SATURATION_EXTENT
             );
             var angle = (1 + Tanh(optimizedValues[1] * bendCompliance)) * 60f + 30f;
-            var axisRoll = optimizedValues[2] * 180f;
+            var axisRoll = optimizedValues[2] * 90f;
 
             return new ConicalSurfaceParameters(apex, angle, axisRoll);
         }
@@ -271,10 +305,13 @@ namespace TurningPage
     [Serializable]
     public class ConicalSurfaceParameters
     {
+
+        public const int PARAMETER_COUNT = 3;
+
         [SerializeField] private float apex = -1f;
         [Range(30f, 150f)]
         [SerializeField] private float angle = 90f;
-        [Range(-180f, 180f)]
+        [Range(-90f, 90f)]
         [SerializeField] private float axisRoll = 0f;
 
         public float Apex => apex;

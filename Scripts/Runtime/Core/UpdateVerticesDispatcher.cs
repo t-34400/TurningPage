@@ -48,12 +48,12 @@ namespace TurningPage
             parameterManager.Initialize(meshSize);
         }
 
-        public void Dispatch()
+        public void Dispatch(float deltaTime)
         {
             var threadGroupX = Mathf.CeilToInt(gridCount.x / 8f);
             var threadGroupY = Mathf.CeilToInt((gridCount.y - 1) / 8f);
 
-            var parameters = parameterManager.UpdateBezierCorrectedParaboloidParameters();
+            var parameters = parameterManager.UpdateConicalSurfaceParameters(deltaTime);
             var angleRad = parameters.Angle * Mathf.Deg2Rad;
             var axis = parameters.Axis;
 

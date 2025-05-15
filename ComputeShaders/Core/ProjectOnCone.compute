@@ -52,7 +52,7 @@ GridPoint ComputeGridPoint(float2 uv)
     float3 tangent = normalize(cross(_ConeAxis, pointOnCone));
     float3 normal = normalize(cross(tangent, pointOnCone));
 
-    float offset = uv.y * 1e-2;
+    float offset = uv.y * 1e-4;
     position += normal * offset; // Add small offset to avoid z-fighting
 
     GridPoint gridPoint;
@@ -78,8 +78,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
     GridPoint gridPoint = ComputeGridPoint(uv);
 
-    // float3 position = ApplyConstraints(id, gridPoint.position);
-    float3 position = gridPoint.position;
+    float3 position = ApplyConstraints(id, gridPoint.position);
 
     vertexBuffer[index].position = position;
     vertexBuffer[index].normal = gridPoint.normal;

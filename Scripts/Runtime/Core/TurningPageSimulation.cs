@@ -167,7 +167,10 @@ namespace TurningPage
         private void FixedUpdate()
         {
             if (IsRunning)
-                updateVerticesDispatcher.Dispatch();                
+            {
+                var deltaTime = Time.fixedDeltaTime;
+                updateVerticesDispatcher.Dispatch(deltaTime);                
+            }
         }
     
         private void OnDestroy()
