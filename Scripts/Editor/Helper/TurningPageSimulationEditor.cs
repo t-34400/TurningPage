@@ -92,16 +92,11 @@ namespace TurningPage.Editor
 
             mesh = simulation.GenerateGridMesh();
 
-            int vertexCount = mesh.vertexCount;
-            int float3Size = sizeof(float) * 3;
-
             mesh.vertexBufferTarget |= GraphicsBuffer.Target.Structured;
             vertexBuffer = mesh.GetVertexBuffer(0);
-            var dummyVelocityBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, vertexCount, float3Size);
 
             initializeVerticesDispatcher.Register(
                 vertexBuffer,
-                dummyVelocityBuffer,
                 simulation.GridSize,
                 simulation.GridCount
             );

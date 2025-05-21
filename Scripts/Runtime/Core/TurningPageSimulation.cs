@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -20,10 +21,11 @@ namespace TurningPage
         [SerializeField] private UpdateVerticesDispatcher updateVerticesDispatcher = default!;
         [SerializeField] private SearchNearestVertexDispatcher searchNearestVertexDispatcher = default!;
 
+        private HashSet<IVertexUpdaterOverride> vertexUpdaterOverrides = new();
+
         private MeshRenderer? meshRenderer;
 
         private GraphicsBuffer? vertexBuffer = null;
-        private GraphicsBuffer? velocityBuffer = null;
         private GraphicsBuffer? predictedPositionBuffer = null;
 
         private Material? _frontMaterial;
@@ -121,6 +123,16 @@ namespace TurningPage
 
         public void Release() => updateVerticesDispatcher.Release();
 
+        public void RegisterVertexUpdaterOverride(IVertexUpdaterOverride vertexUpdaterOverride)
+        {
+            vertexUpdaterOverrides.Add(vertexUpdaterOverride);
+        }
+
+        public void UnregisterVertexUpdaterOverride(IVertexUpdaterOverride vertexUpdaterOverride)
+        {
+            vertexUpdaterOverrides.Remove(vertexUpdaterOverride);
+        }
+
         private void Start()
         {
             if (meshSize.x <= 0 || meshSize.y <= 0 || gridCount.x < 2 || gridCount.y < 2)
@@ -133,7 +145,7 @@ namespace TurningPage
             if (meshRenderer == null)
                 meshRenderer = gameObject.AddComponent<MeshRenderer>();
 
-            meshRenderer.SetMaterials(new () { FrontMaterial, BackMaterial });
+            meshRenderer.SetMaterials(new() { FrontMaterial, BackMaterial });
 
             var meshFilter = gameObject.GetComponent<MeshFilter>();
             if (meshFilter == null)
@@ -148,14 +160,13 @@ namespace TurningPage
             int vertexCount = mesh.vertexCount;
             int float3Size = sizeof(float) * 3;
 
-            velocityBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, vertexCount, float3Size);
             predictedPositionBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, vertexCount, float3Size);
 
             var dx = meshSize.x / (gridCount.x - 1);
             var dz = meshSize.y / (gridCount.y - 1);
             var gridSize = new Vector2(dx, dz);
 
-            initializeVerticesDispatcher.Register(vertexBuffer, velocityBuffer, gridSize, gridCount);
+            initializeVerticesDispatcher.Register(vertexBuffer, gridSize, gridCount);
             updateVerticesDispatcher.Register(vertexBuffer, meshSize, gridCount);
             searchNearestVertexDispatcher.Register(vertexBuffer, gridCount, meshSize);
 
@@ -169,6 +180,17 @@ namespace TurningPage
             if (IsRunning)
             {
                 var deltaTime = Time.fixedDeltaTime;
+
+                foreach (IVertexUpdaterOverride vertexUpdaterOverride in vertexUpdaterOverrides)
+                {
+                    var overridden = vertexUpdaterOverride.TryUpdateVertex(deltaTime);
+
+                    if (overridden)
+                    {
+                        return;
+                    }
+                }
+
                 updateVerticesDispatcher.Dispatch(deltaTime);                
             }
         }
@@ -176,12 +198,10 @@ namespace TurningPage
         private void OnDestroy()
         {
             vertexBuffer?.Dispose();
-            velocityBuffer?.Dispose();
             predictedPositionBuffer?.Dispose();
             searchNearestVertexDispatcher?.Dispose();
 
             vertexBuffer = null;
-            velocityBuffer = null;
             predictedPositionBuffer = null;
         }
 

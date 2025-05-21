@@ -32,14 +32,13 @@ namespace TurningPage
         {
             get => shaderInstance ??= UnityEngine.Object.Instantiate(computeShader);
         }
-        public void Register(GraphicsBuffer vertexBuffer, GraphicsBuffer velocityBuffer, Vector2 gridSize, Vector2Int gridCount)
+        public void Register(GraphicsBuffer vertexBuffer, Vector2 gridSize, Vector2Int gridCount)
         {
             this.gridCount = gridCount;
 
             kernel = ShaderInstance.FindKernel("CSMain");
 
             ShaderInstance.SetBuffer(kernel, "vertexBuffer", vertexBuffer);
-            ShaderInstance.SetBuffer(kernel, "velocityBuffer", velocityBuffer);
 
             ShaderInstance.SetFloats("_GridSize", gridSize.x, gridSize.y);
             ShaderInstance.SetInts("_GridCount", gridCount.x, gridCount.y);

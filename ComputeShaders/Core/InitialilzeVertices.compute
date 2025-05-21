@@ -4,7 +4,6 @@
 #include_with_pragmas "ApplyConstraints.hlsl"
 
 RWStructuredBuffer<Vertex> vertexBuffer;
-RWStructuredBuffer<float3> velocityBuffer;
 
 float2 _GridSize;
 uint2 _GridCount;
@@ -28,6 +27,4 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     
     vertexBuffer[index].position = position;
     vertexBuffer[index].normal = float3(0, gridDir, 0);
-
-    velocityBuffer[index] = float3(0, 0, 0);
 }
