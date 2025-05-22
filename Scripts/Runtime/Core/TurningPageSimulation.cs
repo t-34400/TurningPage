@@ -170,6 +170,11 @@ namespace TurningPage
             updateVerticesDispatcher.Register(vertexBuffer, meshSize, gridCount);
             searchNearestVertexDispatcher.Register(vertexBuffer, gridCount, meshSize);
 
+            foreach (IVertexUpdaterOverride vertexUpdaterOverride in vertexUpdaterOverrides)
+            {
+                vertexUpdaterOverride.Initialize(vertexBuffer, meshSize, gridCount);
+            }
+
             AreBuffersRegistered = true;
 
             InitializePage(false);
