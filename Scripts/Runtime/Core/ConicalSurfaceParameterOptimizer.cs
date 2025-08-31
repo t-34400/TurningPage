@@ -22,6 +22,7 @@ namespace TurningPage
         [Header("Pinched page parameters")]
         [SerializeField] private float positionWeight = 1f;
         [SerializeField] private float normalWeight = 0.2f;
+        [SerializeField] private float invalidAxisRollWeight = 5f;
         [Header("Unpinched page parameters")]
         [SerializeField] private float apexWeight = 0.4f;
         [SerializeField] private float angleWeight = 0.3f;
@@ -53,7 +54,19 @@ namespace TurningPage
                 var sqrDistance = (position - pinchPoint).sqrMagnitude;
                 var normalAngle = Vector3.Angle(normal, pinchNormal) * Mathf.Deg2Rad;
 
-                var loss = positionWeight * sqrDistance + normalWeight * normalAngle;
+                var axisRoll = newParameters.AxisRoll;
+                while (axisRoll >= 270f)
+                    axisRoll -= 360f;
+                while (axisRoll < -90f)
+                    axisRoll += 360f;
+
+                var invalidAxisRollLoss = 0f;
+                if (axisRoll < 0f)
+                    invalidAxisRollLoss += invalidAxisRollWeight * (-axisRoll) / 90f;
+                else if (axisRoll > 180f)
+                    invalidAxisRollLoss += invalidAxisRollWeight * (axisRoll - 180f) / 90f;
+
+                var loss = positionWeight * sqrDistance + normalWeight * normalAngle + invalidAxisRollLoss;
 
                 return loss;
             }
