@@ -59,6 +59,8 @@ namespace TurningPage
 
         public bool AreBuffersRegistered { get; private set; } = false;
 
+        public ConicalSurfaceParameters ConicalSurfaceParameters => updateVerticesDispatcher.LatestParameters;
+
         public void InitializePage(bool isPageFlipped)
         {
             if (!AreBuffersRegistered)
