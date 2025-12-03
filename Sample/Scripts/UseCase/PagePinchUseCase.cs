@@ -25,12 +25,12 @@ namespace TurningPage.Sample.UseCase
             this.pageManager = pageManager;
         }
 
-        public bool TryPinch(Vector3 pinchPoint, float maxPinchDistance)
+        public bool TryPinch(Vector3 pinchPoint, float maxCurrentPageDistance, float maxPinchDistance)
         {
             if (pagePinchController.IsPinched)
                 return false;
 
-            var result = pagePinchController.TryPinch(pinchPoint, maxPinchDistance, pageManager.HasPreviousPage, pageManager.HasNextPage);
+            var result = pagePinchController.TryPinch(pinchPoint, maxCurrentPageDistance, maxPinchDistance, pageManager.HasPreviousPage, pageManager.HasNextPage);
             
             switch (result)
             {

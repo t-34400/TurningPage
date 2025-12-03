@@ -6,6 +6,7 @@ namespace TurningPage.Sample.Presentation
 {
     public class TransformPinchDriver : BasePinchDriver
     {
+        [SerializeField] private float maxCurrentPageDistance = 0.20f;
         [SerializeField] private float maxPinchDistance = 0.04f;
 
         private void Update()
@@ -15,7 +16,7 @@ namespace TurningPage.Sample.Presentation
 
             if (!useCase.IsPinched)
             {
-                if (useCase.TryPinch(transform.position, maxPinchDistance))
+                if (useCase.TryPinch(transform.position, maxCurrentPageDistance, maxPinchDistance))
                 {
                     useCase.UpdatePinchData(transform.position, transform.right, transform.forward);
                 }

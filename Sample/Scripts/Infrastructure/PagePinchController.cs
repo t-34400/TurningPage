@@ -15,12 +15,12 @@ namespace TurningPage.Sample
 
         public bool IsPinched { get; private set; }
 
-        public PinchResult TryPinch(Vector3 pinchPoint, float maxPinchDistance, bool hasPreviousPage, bool hasNextPage)
+        public PinchResult TryPinch(Vector3 pinchPoint, float maxCurrentPageDistance, float maxPinchDistance, bool hasPreviousPage, bool hasNextPage)
         {
             if (IsPinched)
                 return PinchResult.None;
 
-            if (TryPinchNearestVertex(pinchPoint, maxPinchDistance))
+            if (TryPinchNearestVertex(pinchPoint, maxCurrentPageDistance))
                 return PinchResult.CurrentPage;
 
             if (hasNextPage)
